@@ -1,23 +1,36 @@
-// 配管勾配計算 PWA Service Worker
-// 役割: アプリとしての起動要件を満たし、オフライン（現場の圏外）でも開けるようにする。
-// 本体(HTML)はネットワーク優先（更新をすぐ反映）、失敗時のみキャッシュ（オフライン時）。
-const CACHE = 'pipe-slope-pro-v2';
-const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './favicon.ico'];
+// 配管勾配計算 Pro Service Worker (v1.0.2)
+// 目的: ホーム画面アイコンを含む全キャッシュを確実に新しいバージョンへ更新する。
+const CACHE_NAME = 'pipe-slope-calculator-v1.0.2';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.json?v=1.0.2',
+  './icon-192.png?v=1.0.2',
+  './icon-512.png?v=1.0.2',
+  './favicon.ico?v=1.0.2',
+  './apple-touch-icon.png?v=1.0.2'
+];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).catch(()=>{}));
-  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)).catch(()=>{}));
+  self.skipWaiting(); // 待機せず即座に新しいService Workerへ切り替える
 });
+
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k!==CACHE).map(k => caches.delete(k)))));
-  self.clients.claim();
+  e.waitUntil(
+    caches.keys().then(keys =>
+      // 旧キャッシュを全削除（現行バージョン以外はすべて消す）
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim()) // 開いている全ページを即座に新SWの管理下へ
+  );
 });
+
 self.addEventListener('fetch', e => {
   if(e.request.method !== 'GET') return;
   e.respondWith(
     fetch(e.request).then(res => {
       const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, copy)).catch(()=>{});
+      caches.open(CACHE_NAME).then(c => c.put(e.request, copy)).catch(()=>{});
       return res;
     }).catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
   );
