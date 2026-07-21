@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.3">
+<link rel="manifest" href="manifest.json?v=1.0.4">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.3">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.3">
-<link rel="icon" href="favicon.ico?v=1.0.3" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.4">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.4">
+<link rel="icon" href="favicon.ico?v=1.0.4" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -137,11 +137,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.3" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.4" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.3</div>
+  <div class="t3">Version 1.0.4</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -174,7 +174,7 @@
     <div class="card">
       <h2>📋 現場情報</h2>
       <label class="first">現場名・工事名</label>
-      <input type="text" id="inProjectName" placeholder="例）〇〇邸 排水管布設工事">
+      <input type="text" id="inProjectName" placeholder="現場名・工事名">
       <label>作業日</label>
       <input type="text" id="inProjectDate">
       <label>メモ</label>
@@ -370,7 +370,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中の保存は自動（ライン切替時・入力のつど）なので、現場保存は一日の終わりだけでOKです。</div>
       <button class="btn danger" id="btnReset">🗑 新規作成(全データ消去)</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.3<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.4<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -2715,15 +2715,11 @@
             migrateLoadedChecks(data);
           }
         }
-      } else {
-        const legacy = loadAutosaveRaw();
-        if(legacy && legacy.data && hasMeaningfulData(legacy.data)){
-          state = Object.assign(defaultState(), legacy.data);
-          migrateLoadedChecks(legacy.data);
-          ensureSewageSelected();
-          site.siteName = state.project.name||'';
-        }
       }
+      // 初回起動（保存データ無し）は完全なまっさら状態で開始する。
+      // 旧バージョンが同じURLに残した旧形式の自動保存キーは取り込まず、削除して掃除する
+      // （初回アクセスでサンプル的な旧データが表示されるのを防ぐ）。
+      try{ localStorage.removeItem(AUTOSAVE_KEY); }catch(e){}
     }catch(e){}
     site.lines[site.currentLineId] = state; // 最初の測定ライン（汚水本管）を自動作成
     syncFormFields();
