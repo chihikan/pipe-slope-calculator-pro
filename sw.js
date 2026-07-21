@@ -1,14 +1,14 @@
-// 配管勾配計算 Pro Service Worker (v1.0.2)
-// 目的: ホーム画面アイコンを含む全キャッシュを確実に新しいバージョンへ更新する。
-const CACHE_NAME = 'pipe-slope-calculator-v1.0.2';
+// 配管勾配計算 Pro Service Worker (v1.0.3)
+// 目的: キャッシュバージョンを1.0.3に統一し、旧キャッシュを確実に一掃する。
+const CACHE_NAME = 'pipe-slope-calculator-v1.0.3';
 const ASSETS = [
   './',
   './index.html',
-  './manifest.json?v=1.0.2',
-  './icon-192.png?v=1.0.2',
-  './icon-512.png?v=1.0.2',
-  './favicon.ico?v=1.0.2',
-  './apple-touch-icon.png?v=1.0.2'
+  './manifest.json?v=1.0.3',
+  './icon-192.png?v=1.0.3',
+  './icon-512.png?v=1.0.3',
+  './favicon.ico?v=1.0.3',
+  './apple-touch-icon.png?v=1.0.3'
 ];
 
 self.addEventListener('install', e => {

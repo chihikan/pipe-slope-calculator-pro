@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.2">
+<link rel="manifest" href="manifest.json?v=1.0.3">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.2">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.2">
-<link rel="icon" href="favicon.ico?v=1.0.2" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.3">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.3">
+<link rel="icon" href="favicon.ico?v=1.0.3" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -22,6 +22,7 @@
     --amber:#d97706; --amber-bg:#fff7e6;
   }
   *{box-sizing:border-box;}
+  button{touch-action:manipulation;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;
     -webkit-tap-highlight-color:transparent;}
@@ -104,7 +105,8 @@
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;display:none;
     align-items:flex-end;justify-content:center;}
   .modal-bg.show{display:flex;}
-  .modal{background:#fff;border-radius:14px 14px 0 0;padding:16px;width:100%;max-width:640px;}
+  .modal{background:#fff;border-radius:14px 14px 0 0;padding:16px;width:100%;max-width:640px;
+    max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
   .modal p{font-size:13px;color:var(--text);margin:0 0 12px;}
   .modal .row .btn{margin-top:0;}
   .collapsible-head{display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
@@ -135,11 +137,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.2" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.3" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.2</div>
+  <div class="t3">Version 1.0.3</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -368,7 +370,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中の保存は自動（ライン切替時・入力のつど）なので、現場保存は一日の終わりだけでOKです。</div>
       <button class="btn danger" id="btnReset">🗑 新規作成(全データ消去)</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.2<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.3<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -625,12 +627,13 @@
   }
   window.App = window.App || {};
   // 起動スプラッシュ: 表示後に自動でフェードアウトする（アプリ動作には一切干渉しない）
-  window.addEventListener('load', ()=>{
-    setTimeout(()=>{
-      const sp = document.getElementById('splash');
-      if(sp){ sp.classList.add('hide'); setTimeout(()=>{ try{ sp.remove(); }catch(e){} }, 500); }
-    }, 900);
-  });
+  function hideSplash(){
+    const sp = document.getElementById('splash');
+    if(sp){ sp.classList.add('hide'); setTimeout(()=>{ try{ sp.remove(); }catch(e){} }, 500); }
+  }
+  window.addEventListener('load', ()=>{ setTimeout(hideSplash, 900); });
+  setTimeout(hideSplash, 2500);                 // loadイベントが来ない端末でも必ず消す
+  document.getElementById('splash').addEventListener('click', hideSplash); // タップでもスキップ可
   // PWA: アプリとして起動・オフライン利用のためのService Worker登録
   // （GitHub Pages等のhttps配信時のみ有効。ファイル直開きでは何もしないので既存動作に影響なし）
   if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
@@ -1500,7 +1503,7 @@
     let masuTypeHtml;
     if(isSewage){
       masuTypeHtml = '<label>桝種類（始点自体の段差）</label>'
-        +'<select data-fkey="start:masutype" onchange="App.updateStartMasuType({masuTypeSel:this.value})">'
+        +'<select data-fkey="start:masutype" onchange="this.blur(); App.updateStartMasuType({masuTypeSel:this.value})">'
         + Object.keys(SEWAGE_MASU_TYPE_LABELS).map(t=>'<option value="'+t+'" '+(mt.type===t?'selected':'')+'>'+escapeHtml(SEWAGE_MASU_TYPE_LABELS[t])+'</option>').join('')
         +'</select>'
         + (mt.type==='custom' ? (
@@ -1557,8 +1560,11 @@
 
     const active = document.activeElement;
     let restoreKey=null, restoreStart=null, restoreEnd=null;
+    // iOS Safari対策: selectへフォーカスを戻すとピッカーが再度開いてしまうため、
+    // フォーカス復元はテキスト入力(INPUT)に限定する
+    const activeIsInput = !!(active && active.tagName==='INPUT');
     if(active && active.dataset && active.dataset.fkey && list.contains(active)){
-      restoreKey = active.dataset.fkey;
+      if(activeIsInput) restoreKey = active.dataset.fkey;
       if(typeof active.selectionStart === 'number'){ restoreStart = active.selectionStart; restoreEnd = active.selectionEnd; }
     }
 
@@ -1598,7 +1604,7 @@
       let masuTypeHtml;
       if(isSewage){
         masuTypeHtml = '<label>桝種類</label>'
-          +'<select data-fkey="pt:'+p.id+':masutype" onchange="App.updatePoint(\''+p.id+'\',{masuTypeSel:this.value})">'
+          +'<select data-fkey="pt:'+p.id+':masutype" onchange="this.blur(); App.updatePoint(\''+p.id+'\',{masuTypeSel:this.value})">'
           + Object.keys(SEWAGE_MASU_TYPE_LABELS).map(t=>'<option value="'+t+'" '+(mt.type===t?'selected':'')+'>'+escapeHtml(SEWAGE_MASU_TYPE_LABELS[t])+'</option>').join('')
           +'</select>'
           + (mt.type==='custom' ? (
