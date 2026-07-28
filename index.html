@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.4">
+<link rel="manifest" href="manifest.json?v=1.0.8">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.4">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.4">
-<link rel="icon" href="favicon.ico?v=1.0.4" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.8">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.8">
+<link rel="icon" href="favicon.ico?v=1.0.8" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -137,11 +137,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.4" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.8" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.4</div>
+  <div class="t3">Version 1.0.8</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -174,7 +174,7 @@
     <div class="card">
       <h2>📋 現場情報</h2>
       <label class="first">現場名・工事名</label>
-      <input type="text" id="inProjectName" placeholder="例：○○様住宅新築工事">
+      <input type="text" id="inProjectName" placeholder="現場名・工事名">
       <label>作業日</label>
       <input type="text" id="inProjectDate">
       <label>メモ</label>
@@ -368,9 +368,9 @@
       <button class="btn" id="btnSave">🏠 現場保存(現場全体を1ファイルに書き出す)</button>
       <button class="btn" id="btnLoad" style="margin-top:10px;">📂 読込(保存ファイルを開く)</button>
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
-      <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中の保存は自動（ライン切替時・入力のつど）なので、現場保存は一日の終わりだけでOKです。</div>
-      <button class="btn danger" id="btnReset">🗑 新規作成(全データ消去)</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.4<br>Designed by Izumi Sangyo</div>
+      <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
+      <button class="btn danger" id="btnReset">📄 新しいファイル</button>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.8<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -409,12 +409,13 @@
   <button class="tab-btn" data-tab="tab-points"><span class="ic">📏</span>計算表</button>
   <button class="tab-btn" data-tab="tab-save"><span class="ic">💾</span>保存</button>
   <button id="btnLoadNav"><span class="ic">📂</span>読込</button>
+  <button id="btnNewNav"><span class="ic">📄</span>新規</button>
 </nav>
 
 <div class="modal-bg" id="lineModalBg">
   <div class="modal">
     <h3 style="margin:0 0 4px;">測定ラインの切替</h3>
-    <div class="hint">切替時、現在のラインは自動保存されます。</div>
+    <div class="hint">切替時、現在のラインはアプリ使用中だけ一時保持されます。</div>
     <div id="lineModalList"></div>
   </div>
 </div>
@@ -485,6 +486,7 @@
   // 本管は汚水・雨水それぞれ1本のみ（追加不可・一覧から切替えて続きを再開）。
   // 枝管は「汚水枝管1,2,…」「雨水枝管1,2,…」を別々に昇順採番で追加できる。
   const SITE_KEY = 'pipeSlopeSite_v2';
+  const DRAFT_KEY = 'pipeSlopeWorkingDraft_v106';
   const MAIN_LINE = '本管'; // 本管は1つだけ（共通の基準ライン。汚水・雨水を1つの測定データで扱う）
   let site = { version:2, siteName:'', currentLineId:MAIN_LINE, lines:{} };
   function lineIsRain(id){ return String(id).indexOf('雨水枝')===0; }
@@ -510,13 +512,13 @@
       delete site.lines['雨水本管'];
     }
   }
-  // 現在画面のstateを現在ラインへ退避し、現場ごとlocalStorageへ保存する
+  // 現在画面のstateを現在ラインへ退避する（アプリ使用中のメモリ内だけ）
   function snapshotCurrentLine(){
     site.lines[site.currentLineId] = JSON.parse(JSON.stringify(state));
     site.siteName = state.project.name || site.siteName || '';
   }
   function persistSite(){
-    try{ localStorage.setItem(SITE_KEY, JSON.stringify(site)); }catch(e){}
+    scheduleDraftSave();
   }
   // 新しいラインを作る。器械設置・設計GL照合・BM・現場情報は現在ラインから引き継ぎ、計算表は空。
   function createLineData(id){
@@ -714,16 +716,41 @@
     }
   });
 
-  // ---------- 自動保存（スマホのオートパワーオフ・ブラウザ強制終了からの復旧用） ----------
+  // ---------- 作業中の復旧用一時保存 ----------
   const AUTOSAVE_KEY = 'pipeSlopeCalcAutosave_v1';
-  function autosaveState(){
-    // 作業中の自動保存: 現在ラインを現場構造(v2)へ反映してlocalStorageに保存する
-    // （ファイル保存画面は開かない。ページ再読み込み後も現場と現在ラインを復元できる）
+  let draftSaveTimer = null;
+  let draftEnabled = false;
+  let initializationComplete = false;
+  function writeDraftNow(){
+    if(draftSaveTimer){ clearTimeout(draftSaveTimer); draftSaveTimer=null; }
+    if(!draftEnabled) return;
     try{
       site.lines[site.currentLineId] = state;
       site.siteName = state.project.name || site.siteName || '';
-      localStorage.setItem(SITE_KEY, JSON.stringify(site));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(site));
     }catch(e){}
+  }
+  function scheduleDraftSave(){
+    if(!initializationComplete) return;
+    draftEnabled = true;
+    if(draftSaveTimer) clearTimeout(draftSaveTimer);
+    // 連続入力中の端末書込みを避け、最後の操作から3秒後に1回だけ保存する。
+    draftSaveTimer = setTimeout(writeDraftNow, 3000);
+  }
+  function clearWorkingDraft(){
+    if(draftSaveTimer){ clearTimeout(draftSaveTimer); draftSaveTimer=null; }
+    draftEnabled = false;
+    try{
+      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(SITE_KEY);
+      localStorage.removeItem(AUTOSAVE_KEY);
+    }catch(e){}
+  }
+  function autosaveState(){
+    // 現在ラインをメモリへ反映し、端末への書込みはまとめて低頻度で行う。
+    site.lines[site.currentLineId] = state;
+    site.siteName = state.project.name || site.siteName || '';
+    scheduleDraftSave();
   }
   function loadAutosaveRaw(){
     try{
@@ -735,6 +762,11 @@
   function clearAutosave(){
     try{ localStorage.removeItem(AUTOSAVE_KEY); }catch(e){}
   }
+  // 画面消灯・アプリ切替の直前は、OSに終了されても復旧できるよう即時保存する。
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='hidden') writeDraftNow();
+  });
+  window.addEventListener('pagehide', writeDraftNow);
   function hasMeaningfulData(s){
     if(!s) return false;
     const jobHasData = j => j && ((j.stations&&j.stations.length) || (j.checks&&j.checks.length) || (j.points&&j.points.length) || (j.start&&j.start.directMm) || (j.start&&j.start.readingM));
@@ -833,16 +865,16 @@
   // ---------- 桝種類（段差の自動判定） ----------
   // 汚水：桝種類の選択肢。末尾にSが付くもの(90YS/45YS/WLS/YWS)は自動的に+30mm段差。
   // DR/DRWは上流側・下流側を個別に実測入力できる特殊枡（自動段差なし）。
-  const SEWAGE_MASU_TYPES = ['ST','90L','45L','22L','90Y','90YS','45Y','45YS','WLS','YWS','DR','DRW','custom'];
+  const SEWAGE_MASU_TYPES = ['ST','90L','45L','22L','90Y','90YS','45Y','45YS','WLS','YWS','DR','DRW','放流','浄化槽流入','浄化槽放流','custom'];
   const SEWAGE_MASU_STEP_TYPES = ['90YS','45YS','WLS','YWS']; // 自動+30mm
   const SEWAGE_MASU_DUAL_TYPES = ['DR','DRW']; // 上流/下流 個別手入力
-  const RAIN_MASU_TYPE_LABELS = { '':'未選択', small:'小口径桝', box:'桶桝' };
+  const RAIN_MASU_TYPE_LABELS = { '':'未選択', small:'小口径桝', box:'桶桝', discharge:'放流' };
   const SEWAGE_MASU_TYPE_LABELS = Object.assign({ '':'未選択' }, Object.fromEntries(SEWAGE_MASU_TYPES.map(t=>[t, t==='custom'?'カスタム':t])));
   function defaultMasuType(){
     return {
       type: '',
       customSign: 'plus', customMm: 30,          // 汚水「カスタム」時の段差
-      boxStepEnabled: false, boxSign: 'minus', boxMm: 10, // 雨水「桶桝」の段差あり/なし（既定：段差無し＝0mm）。段差ありの場合、既定10mm下げでカスタムmm変更も可
+      boxStepEnabled: false, boxSign: 'minus', boxMm: 10, // 雨水「桶桝」の段差あり/なし。段差ありは下流側を既定10mm下げる（符号は施工方向から自動判定）
       upstreamActualReadingM: null, downstreamActualReadingM: null
     };
   }
@@ -877,8 +909,8 @@
     } else if(mt.type==='box'){
       stepKind = 'split';
       stepPhysicalMm = mt.boxStepEnabled
-        ? (mt.boxSign==='plus' ? Number(mt.boxMm||10) : -Number(mt.boxMm||10))
-        : 0; // 段差無し(既定)：上流=下流。段差ありの場合のみ既定10mm(下流を下げる)、カスタムで変更可
+        ? -Math.abs(Number(mt.boxMm||10))
+        : 0; // 段差無し：上流=下流。段差あり：下流側は上流側より指定mm下がる
     }
     return { stepKind, stepPhysicalMm };
   }
@@ -1085,6 +1117,8 @@
       let actualElevMm=null, diffMm=null, actualSlopeN=null;
       let requiredReadingUpM=null, requiredReadingDownM=null, requiredReadingUpInvertM=null, requiredReadingUpTopM=null, requiredReadingDownInvertM=null, requiredReadingDownTopM=null;
       let actualElevUpMm=null, actualElevDownMm=null, diffUpMm=null, diffDownMm=null;
+      let effectiveUpActualReadingM = mt.upstreamActualReadingM;
+      let effectiveDownActualReadingM = mt.downstreamActualReadingM;
 
       if(hasSplit){
         const reqUpInvertM = (st.ihMm - designUpstreamMm)/1000;
@@ -1098,13 +1132,22 @@
       if(isDualInput){
         const hasUp = mt.upstreamActualReadingM!==null && mt.upstreamActualReadingM!=='' && mt.upstreamActualReadingM!==undefined;
         const hasDown = mt.downstreamActualReadingM!==null && mt.downstreamActualReadingM!=='' && mt.downstreamActualReadingM!==undefined;
-        if(hasUp){
-          const rawUp = st.ihMm - Number(mt.upstreamActualReadingM)*1000;
+        // 雨水桶桝・段差あり：
+        // 上流から施工は流入(上流)側を測り、放流(下流)側の読みを段差分プラス。
+        // 下流から施工は放流(下流)側を測り、流入(上流)側の読みを段差分マイナス。
+        // 反対側にも手入力がある場合は、その手入力値を優先する。
+        if(!isSewage && mt.type==='box' && mt.boxStepEnabled){
+          const stepReadM = Math.abs(Number(mt.boxMm||10))/1000;
+          if(dirDown && hasUp && !hasDown) effectiveDownActualReadingM = Number(mt.upstreamActualReadingM) + stepReadM;
+          if(!dirDown && hasDown && !hasUp) effectiveUpActualReadingM = Number(mt.downstreamActualReadingM) - stepReadM;
+        }
+        if(effectiveUpActualReadingM!==null && effectiveUpActualReadingM!=='' && effectiveUpActualReadingM!==undefined){
+          const rawUp = st.ihMm - Number(effectiveUpActualReadingM)*1000;
           actualElevUpMm = toInvertElevMm(rawUp, measureLoc, currentOffsetMm);
           diffUpMm = actualElevUpMm - designUpstreamMm;
         }
-        if(hasDown){
-          const rawDown = st.ihMm - Number(mt.downstreamActualReadingM)*1000;
+        if(effectiveDownActualReadingM!==null && effectiveDownActualReadingM!=='' && effectiveDownActualReadingM!==undefined){
+          const rawDown = st.ihMm - Number(effectiveDownActualReadingM)*1000;
           actualElevDownMm = toInvertElevMm(rawDown, measureLoc, currentOffsetMm);
           diffDownMm = actualElevDownMm - designDownstreamMm;
         }
@@ -1167,7 +1210,8 @@
       results.push({ designBeforeMm, designElevMm:design, requiredReadingM, requiredReadingInvertM, requiredReadingTopM, actualElevMm, diffMm, station:st, baseSource, actualSlopeN, sizeLabel:currentSizeLabel, offsetMm:currentOffsetMm,
         masuType:mt, isDualReading:isDualInput, hasSplit, designUpstreamMm, designDownstreamMm,
         requiredReadingUpM, requiredReadingDownM, requiredReadingUpInvertM, requiredReadingUpTopM, requiredReadingDownInvertM, requiredReadingDownTopM,
-        actualElevUpMm, actualElevDownMm, diffUpMm, diffDownMm });
+        actualElevUpMm, actualElevDownMm, diffUpMm, diffDownMm,
+        effectiveUpActualReadingM, effectiveDownActualReadingM });
 
       // 次地点の基準を更新：実測値があればそれを、なければ理論設計値を引き継ぐ
       // 上流/下流が分かれる地点では、施工が実際に進む方向(forward側)の値を優先して引き継ぐ
@@ -1518,7 +1562,7 @@
       // №1(始点)の桶桝は段差処理を行わない(№1だけの特別ルール)。№1は最上流(または最下流)の基準点そのものであり、
       // 段差は「上流側から入ってきた配管との高低差」を表すものなので、入ってくる配管が無い№1には適用されない。
       masuTypeHtml = '<label>桝種類（始点自体の段差）</label>'
-        +'<div class="seg"><button class="'+(mt.type==='small'?'active':'')+'" onclick="App.updateStartMasuType({masuTypeSel:\'small\'})">小口径桝</button><button class="'+(mt.type==='box'?'active':'')+'" onclick="App.updateStartMasuType({masuTypeSel:\'box\'})">桶桝</button></div>'
+        +'<div class="seg"><button class="'+(mt.type==='small'?'active':'')+'" onclick="App.updateStartMasuType({masuTypeSel:\'small\'})">小口径桝</button><button class="'+(mt.type==='box'?'active':'')+'" onclick="App.updateStartMasuType({masuTypeSel:\'box\'})">桶桝</button><button class="'+(mt.type==='discharge'?'active':'')+'" onclick="App.updateStartMasuType({masuTypeSel:\'discharge\'})">放流</button></div>'
         + (mt.type==='box' ? '<div class="pchips"><span>№1は最上流(または最下流)の基準点のため、桶桝でも段差処理は行いません（「始点高さ」がそのまま№1の高さになります）</span></div>' : '');
     }
 
@@ -1617,14 +1661,15 @@
           + (SEWAGE_MASU_DUAL_TYPES.includes(mt.type) ? '<div class="pchips"><span>上流側・下流側を個別に手入力できます（下流側の実測値が次地点の計算基準になります）</span></div>' : '');
       } else {
         masuTypeHtml = '<label>桝種類</label>'
-          +'<div class="seg"><button class="'+(mt.type==='small'?'active':'')+'" onclick="App.updatePoint(\''+p.id+'\',{masuTypeSel:\'small\'})">小口径桝</button><button class="'+(mt.type==='box'?'active':'')+'" onclick="App.updatePoint(\''+p.id+'\',{masuTypeSel:\'box\'})">桶桝</button></div>'
+          +'<div class="seg"><button class="'+(mt.type==='small'?'active':'')+'" onclick="App.updatePoint(\''+p.id+'\',{masuTypeSel:\'small\'})">小口径桝</button><button class="'+(mt.type==='box'?'active':'')+'" onclick="App.updatePoint(\''+p.id+'\',{masuTypeSel:\'box\'})">桶桝</button><button class="'+(mt.type==='discharge'?'active':'')+'" onclick="App.updatePoint(\''+p.id+'\',{masuTypeSel:\'discharge\'})">放流</button></div>'
           + (mt.type==='box' ? (
-            '<button class="btn '+(mt.boxStepEnabled?'':'secondary')+'" style="margin-top:10px;" onclick="App.toggleBoxStep(\''+p.id+'\')">'+(mt.boxStepEnabled?'✅ 段差あり（下流側が上流側より'+mt.boxMm+'mm'+(mt.boxSign==='plus'?'上がります':'下がります')+'）タップで段差無しに':'🔲 段差無し（タップで段差ありに）')+'</button>'
+            '<button class="btn '+(mt.boxStepEnabled?'':'secondary')+'" style="margin-top:10px;" onclick="App.toggleBoxStep(\''+p.id+'\')">'+(mt.boxStepEnabled?'✅ 段差あり（下流側が上流側より'+mt.boxMm+'mm下がります）タップで段差無しに':'🔲 段差無し（タップで段差ありに）')+'</button>'
             + (mt.boxStepEnabled ? (
-              '<div class="row">'
-              +'<div><label>符号</label><div class="seg"><button class="'+(mt.boxSign==='plus'?'active':'')+'" onclick="App.updatePoint(\''+p.id+'\',{boxSign:\'plus\'})">＋上げ</button><button class="'+(mt.boxSign==='minus'?'active':'')+'" onclick="App.updatePoint(\''+p.id+'\',{boxSign:\'minus\'})">－下げ</button></div></div>'
-              +'<div><label>段差(mm)</label><input type="text" inputmode="numeric" pattern="[0-9]*" data-fkey="pt:'+p.id+':boxmm" value="'+mt.boxMm+'" oninput="App.updatePoint(\''+p.id+'\',{boxMm:this.value})"></div>'
-              +'</div>'
+              '<label>段差(mm)　※既定10mm・変更時だけ手入力</label>'
+              +'<input type="text" inputmode="numeric" pattern="[0-9]*" data-fkey="pt:'+p.id+':boxmm" value="'+mt.boxMm+'" oninput="App.updatePoint(\''+p.id+'\',{boxMm:this.value})">'
+              +'<div class="pchips"><span>'+(dirDown
+                ? '上流から施工：流入側の実測読みを入力すると、放流側は自動で＋'+mt.boxMm+'mm'
+                : '下流から施工：放流側の実測読みを入力すると、流入側は自動で－'+mt.boxMm+'mm')+'</span></div>'
             ) : '')
           ) : '');
       }
@@ -1634,9 +1679,9 @@
         +'<div class="seg"><button class="'+(measureLoc==='invert'?'active':'')+'" onclick="App.updatePoint(\''+p.id+'\',{measureLoc:\'invert\'})">管下ボタン</button><button class="'+(measureLoc==='top'?'active':'')+'" onclick="App.updatePoint(\''+p.id+'\',{measureLoc:\'top\'})">管上ボタン</button></div>';
 
       const actualReadingHtml = isDual ? (
-        '<label>上流側 実測読み(mm)　※任意・上で選んだ測定位置での読み</label>'
+        '<label>上流側（流入側）実測読み(mm)　'+(dirDown?'※通常はこちらを入力':'※空欄なら放流側から自動計算')+'</label>'
         +'<input type="text" inputmode="numeric" pattern="[0-9]*" data-fkey="pt:'+p.id+':actualup" placeholder="上流側の読みを入力" value="'+mToMmInput(mt.upstreamActualReadingM)+'" oninput="App.updatePoint(\''+p.id+'\',{upstreamActualReadingM:this.value})">'
-        +'<label>下流側 実測読み(mm)　※任意・次地点の計算基準になります</label>'
+        +'<label>下流側（放流側）実測読み(mm)　'+(dirDown?'※空欄なら流入側から自動計算':'※通常はこちらを入力')+'</label>'
         +'<input type="text" inputmode="numeric" pattern="[0-9]*" data-fkey="pt:'+p.id+':actualdown" placeholder="下流側の読みを入力" value="'+mToMmInput(mt.downstreamActualReadingM)+'" oninput="App.updatePoint(\''+p.id+'\',{downstreamActualReadingM:this.value})">'
       ) : (r.hasSplit ? (
         '<label>実測読み(mm)　※任意・上流側の読み（下流側は自動算出されます）・上で選んだ測定位置での読み</label>'
@@ -1696,6 +1741,7 @@
     });
   }
   document.addEventListener('input', e=>{
+    scheduleDraftSave();
     if(e.target && e.target.classList && e.target.classList.contains('req')){
       e.target.classList.toggle('done', String(e.target.value).trim()!=='');
     }
@@ -2139,6 +2185,10 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    // 現場ファイルを書き出した後は、次回起動時に古い作業を復元しない。
+    clearWorkingDraft();
+    markSaved();
+    renderHeader();
   });
   document.getElementById('btnLoad').addEventListener('click', openLoadPicker);
   // 下部タスクバーの読込ボタン（どのタブからでもワンタップで読込できる）
@@ -2211,17 +2261,26 @@
     }
     document.getElementById('fileLoad').click();
   }
-  document.getElementById('btnReset').addEventListener('click', ()=>{
+  function startNewFile(){
     showModal('全てのデータを消去して新規作成します。保存していない内容は失われます。よろしいですか？', ()=>{
-      pushHistory();
+      flushPendingEdit();
+      if(pointsRenderTimer){ clearTimeout(pointsRenderTimer); pointsRenderTimer=null; }
       state = defaultState();
+      site = { version:2, siteName:'', currentLineId:MAIN_LINE, lines:{} };
+      site.lines[MAIN_LINE] = state;
       currentFileBase = null; // ファイル文脈もクリア
       currentFileHandle = null;
+      undoStack = [];
+      redoStack = [];
+      clearWorkingDraft();
       markSaved(); // 既定状態を基準にし、以後の入力で＊未保存表示になる
       syncFormFields();
       renderAll();
+      goToTab('tab-station');
     });
-  });
+  }
+  document.getElementById('btnReset').addEventListener('click', startNewFile);
+  document.getElementById('btnNewNav').addEventListener('click', startNewFile);
   document.getElementById('btnUndo').addEventListener('click', ()=>{ App.undo(); syncFormFields(); });
   document.getElementById('btnRedo').addEventListener('click', ()=>{ App.redo(); syncFormFields(); });
 
@@ -2304,7 +2363,7 @@
         if(SEWAGE_MASU_DUAL_TYPES.includes(mt.type)) return '自動段差なし(上流/下流を個別に実測)';
         return '';
       }
-      if(mt.type==='box') return mt.boxStepEnabled ? ('段差あり(下流側が上流側より'+mt.boxMm+'mm'+(mt.boxSign==='plus'?'上がる':'下がる')+')') : '段差無し';
+      if(mt.type==='box') return mt.boxStepEnabled ? ('段差あり(下流側が上流側より'+mt.boxMm+'mm下がる)') : '段差無し';
       return '';
     }
     function judgeTextOf(diffMm){
@@ -2389,8 +2448,8 @@
       let upActualReadM=null, upActualElevMm=null, upDiffMm=null;
       let downActualReadM=null, downActualElevMm=null, downDiffMm=null;
       if(r.isDualReading){
-        upActualReadM = mt.upstreamActualReadingM; upActualElevMm = r.actualElevUpMm; upDiffMm = r.diffUpMm;
-        downActualReadM = mt.downstreamActualReadingM; downActualElevMm = r.actualElevDownMm; downDiffMm = r.diffDownMm;
+        upActualReadM = r.effectiveUpActualReadingM; upActualElevMm = r.actualElevUpMm; upDiffMm = r.diffUpMm;
+        downActualReadM = r.effectiveDownActualReadingM; downActualElevMm = r.actualElevDownMm; downDiffMm = r.diffDownMm;
       } else if(r.hasSplit){
         // 自動+30など、段差はあるが単一入力(S-suffix)の桝：実測欄は常に上流側の読み。下流側は自動算出(参考表示のみ)。
         upActualReadM = p.actualReadingM; upActualElevMm = r.actualElevUpMm; upDiffMm = r.diffUpMm;
@@ -2698,17 +2757,21 @@
   function ensureSewageSelected(){
     if(state.pipe.type !== 'sewage') switchPipeType('sewage');
   }
-  // 保存済みの現場(v2)があれば無言で復元し、作業中のライン・入力を再開できるようにする。
-  // 旧形式の自動保存(単体state)が残っていた場合は「汚水本管」として取り込む。
+  // v1.0.8: 未保存の作業用一時データだけ復元する。
+  // 「現場保存」済みなら一時データは消えているため、新しいファイルから開始する。
   (function initSite(){
+    let restoredDraft = false;
     try{
-      const raw = localStorage.getItem(SITE_KEY);
+      const raw = localStorage.getItem(DRAFT_KEY);
       if(raw){
         const loaded = JSON.parse(raw);
         if(loaded && loaded.version===2 && loaded.lines){
+          restoredDraft = true;
           site = loaded;
           migrateSiteLineNames();
-          if(!site.currentLineId || !site.lines[site.currentLineId]) site.currentLineId = Object.keys(site.lines)[0] || MAIN_LINE;
+          if(!site.currentLineId || !site.lines[site.currentLineId]){
+            site.currentLineId = Object.keys(site.lines)[0] || MAIN_LINE;
+          }
           const data = site.lines[site.currentLineId];
           if(data){
             state = Object.assign(defaultState(), JSON.parse(JSON.stringify(data)));
@@ -2716,15 +2779,19 @@
           }
         }
       }
-      // 初回起動（保存データ無し）は完全なまっさら状態で開始する。
-      // 旧バージョンが同じURLに残した旧形式の自動保存キーは取り込まず、削除して掃除する
-      // （初回アクセスでサンプル的な旧データが表示されるのを防ぐ）。
-      try{ localStorage.removeItem(AUTOSAVE_KEY); }catch(e){}
+      localStorage.removeItem(SITE_KEY);
+      localStorage.removeItem(AUTOSAVE_KEY);
     }catch(e){}
-    site.lines[site.currentLineId] = state; // 最初の測定ライン（汚水本管）を自動作成
+    if(!site || !site.lines || !Object.keys(site.lines).length){
+      state = defaultState();
+      site = { version:2, siteName:'', currentLineId:MAIN_LINE, lines:{} };
+    }
+    site.lines[site.currentLineId] = state;
     syncFormFields();
     markSaved();
     renderAll();
+    initializationComplete = true;
+    draftEnabled = restoredDraft;
   })();
 })();
 </script>

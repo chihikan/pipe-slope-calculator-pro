@@ -1,14 +1,14 @@
-// 配管勾配計算 Pro Service Worker (v1.0.4)
-// 目的: キャッシュバージョンを1.0.4に統一し、旧キャッシュを確実に一掃する。
-const CACHE_NAME = 'pipe-slope-calculator-v1.0.4';
+// 配管勾配計算 Pro Service Worker (v1.0.8)
+// 目的: キャッシュバージョンを1.0.8に統一し、旧キャッシュを確実に一掃する。
+const CACHE_NAME = 'pipe-slope-calculator-v1.0.8';
 const ASSETS = [
   './',
   './index.html',
-  './manifest.json?v=1.0.4',
-  './icon-192.png?v=1.0.4',
-  './icon-512.png?v=1.0.4',
-  './favicon.ico?v=1.0.4',
-  './apple-touch-icon.png?v=1.0.4'
+  './manifest.json?v=1.0.8',
+  './icon-192.png?v=1.0.8',
+  './icon-512.png?v=1.0.8',
+  './favicon.ico?v=1.0.8',
+  './apple-touch-icon.png?v=1.0.8'
 ];
 
 self.addEventListener('install', e => {
@@ -28,10 +28,15 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if(e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request).then(res => {
-      const copy = res.clone();
-      caches.open(CACHE_NAME).then(c => c.put(e.request, copy)).catch(()=>{});
-      return res;
-    }).catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
+    caches.match(e.request).then(cached => {
+      if(cached) return cached;
+      return fetch(e.request).then(res => {
+        if(res && res.ok){
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, copy)).catch(()=>{});
+        }
+        return res;
+      });
+    }).catch(() => caches.match('./index.html'))
   );
 });
