@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.9">
+<link rel="manifest" href="manifest.json?v=1.0.10">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.9">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.9">
-<link rel="icon" href="favicon.ico?v=1.0.9" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.10">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.10">
+<link rel="icon" href="favicon.ico?v=1.0.10" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.9" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.10" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.9</div>
+  <div class="t3">Version 1.0.10</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -232,10 +232,10 @@
       <div id="checkList"></div>
 
       <div id="checkForm" style="display:none;">
-        <h3>設計GL確認を追加</h3>
+        <h3>設計GL確認を追加</h3><div class="req-legend"><span class="rq"></span> ＝必須入力（未入力）　<span class="dn"></span> ＝入力済み</div>
         <label class="first">設計GLオフセット　BM＋(mm)</label>
-        <input type="number" id="fCheckOffset" step="1" inputmode="numeric" placeholder="例）450">
-        <label>実測した読み(mm)</label>
+        <input class="req" type="number" id="fCheckOffset" step="1" inputmode="numeric" placeholder="例）450">
+        <label>実測した読み(mm)　※任意（現場で照合したい場合のみ入力）</label>
         <input type="number" id="fCheckReading" step="1" inputmode="numeric" placeholder="例）1050">
         <div class="row">
           <button class="btn secondary" id="btnCheckCancel">キャンセル</button>
@@ -244,7 +244,7 @@
       </div>
 
       <button class="btn secondary" id="btnAddCheck">＋ 設計GL確認を追加</button>
-      <div class="hint">設計GL(例：BM＋450)の位置を実測し、想定通りか確認します。器械を設置した後、施工前の検算に使います。</div>
+      <div class="hint">設計GLオフセット(例：BM＋450)を登録すると、始点/終点の予想高さの計算に使えます。実測した読みは、現場で想定通りかを確認したい場合だけ入力してください（任意）。</div>
     </div>
 
   </div>
@@ -377,7 +377,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.9<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.10<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -1304,15 +1304,17 @@
     wrap.innerHTML = state.checks.map(c=>{
       const st = stationById(c.stationId) || currentStation();
       let designElevMm = Number(c.offsetMm);
+      // 実測した読みは任意。未入力(null/空欄)の場合は「未実施」として扱い、実測高の計算はしない。
+      const hasReading = c.readingM!=='' && c.readingM!==null && c.readingM!==undefined;
       let surveyElevMm = null, diffMm=null;
-      if(st && c.readingM!=='' && c.readingM!==null && c.readingM!==undefined){
+      if(st && hasReading){
         surveyElevMm = st.ihMm - Number(c.readingM)*1000;
         diffMm = surveyElevMm - designElevMm;
       }
       const tag = diffTag(diffMm);
       return '<div class="checklist">'
         +'<div class="checkrow"><b>'+escapeHtml(c.label)+'</b><button class="iconbtn del" onclick="App.deleteCheck(\''+c.id+'\')">🗑</button></div>'
-        +'<div class="hint">設計高: BM'+fmtMm(designElevMm)+'mm ／ 実測高: '+(surveyElevMm===null?'—':fmtMm(surveyElevMm)+'mm')+'</div>'
+        +'<div class="hint">設計GL: BM'+fmtMm(designElevMm)+'mm ／ 実測照合: '+(hasReading ? fmtMm(surveyElevMm)+'mm' : '未実施')+'</div>'
         +(diffMm===null ? '' : '<div style="margin-top:4px;">差: '+fmtMm(diffMm)+'mm　'+tag+'</div>')
         +'</div>';
     }).join('');
@@ -2026,27 +2028,51 @@
   // ---------- 設計GL照合 ----------
   const checkForm = document.getElementById('checkForm');
   const btnAddCheck = document.getElementById('btnAddCheck');
+  function clearCheckOffsetError(){
+    const el = document.getElementById('fCheckOffset');
+    el.classList.remove('field-error');
+    const msgEl = el.nextElementSibling;
+    if(msgEl && msgEl.classList && msgEl.classList.contains('field-error-msg')) msgEl.remove();
+  }
   btnAddCheck.addEventListener('click', ()=>{
     if(!currentStation()){ showModal('先に器械を設置してください。', ()=>{}); return; }
     btnAddCheck.style.display='none';
     checkForm.style.display='block';
     document.getElementById('fCheckOffset').value='';
     document.getElementById('fCheckReading').value='';
+    clearCheckOffsetError();
   });
   function closeCheckForm(){
     checkForm.style.display='none';
     btnAddCheck.style.display='block';
+    clearCheckOffsetError();
   }
   document.getElementById('btnCheckCancel').addEventListener('click', closeCheckForm);
   document.getElementById('btnCheckOk').addEventListener('click', ()=>{
-    const off = document.getElementById('fCheckOffset').value;
+    const offEl = document.getElementById('fCheckOffset');
+    const off = offEl.value;
     const reading = document.getElementById('fCheckReading').value;
-    if(off==='' || isNaN(Number(off)) || reading==='' || isNaN(Number(reading))){
+    // 設計GLオフセットは必須（予想高さの計算に使う値のため）。実測した読みは任意（現場照合用）。
+    // 数値の0は正しい入力として扱い、空欄とは区別する（off===''のみを未入力とみなす）。
+    if(off===''){
+      showFieldError('fCheckOffset', '設計GLオフセットを入力してください。差がない場合も「0」と入力してください。');
+      offEl.scrollIntoView({ behavior:'smooth', block:'center' });
+      offEl.focus();
+      return;
+    }
+    if(isNaN(Number(off)) || (reading!=='' && isNaN(Number(reading)))){
       showModal('数値を入力してください。', ()=>{}); return;
     }
     const cur = currentStation();
     pushHistory();
-    state.checks.push({ id: nextId(), label:'設計GL確認'+(state.checks.length+1), offsetMm:Number(off), readingM:Number(reading)/1000, stationId:cur.id });
+    state.checks.push({
+      id: nextId(),
+      label:'設計GL確認'+(state.checks.length+1),
+      offsetMm: Number(off),
+      readingM: reading==='' ? null : Number(reading)/1000, // 任意入力。未入力はnullとして安全に保存する
+      stationId: cur.id
+    });
+    clearCheckOffsetError();
     closeCheckForm();
     renderAll();
   });
@@ -2474,8 +2500,10 @@
     state.checks.forEach(c=>{
       const st = stationById(c.stationId) || currentStation();
       const designElevMm = Number(c.offsetMm);
+      // 実測した読みは任意のためnullの場合がある。未実施の場合は実測高・差を空欄にする(0扱いにしない)。
+      const hasReading = c.readingM!=='' && c.readingM!==null && c.readingM!==undefined;
       let surveyElevMm='', diffMm='';
-      if(st){ surveyElevMm = st.ihMm - Number(c.readingM)*1000; diffMm = surveyElevMm - designElevMm; }
+      if(st && hasReading){ surveyElevMm = st.ihMm - Number(c.readingM)*1000; diffMm = surveyElevMm - designElevMm; }
       rows.push([c.label, fmtMm(designElevMm), surveyElevMm===''?'':fmtMm(surveyElevMm), diffMm===''?'':fmtMm(diffMm)]);
     });
     rows.push([]);
@@ -3032,7 +3060,7 @@
   function ensureSewageSelected(){
     if(state.pipe.type !== 'sewage') switchPipeType('sewage');
   }
-  // v1.0.9: 未保存の作業用一時データだけ復元する。
+  // v1.0.10: 未保存の作業用一時データだけ復元する。
   // 「現場保存」済みなら一時データは消えているため、新しいファイルから開始する。
   (function initSite(){
     let restoredDraft = false;
