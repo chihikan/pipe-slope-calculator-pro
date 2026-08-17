@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.8">
+<link rel="manifest" href="manifest.json?v=1.0.9">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.8">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.8">
-<link rel="icon" href="favicon.ico?v=1.0.8" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.9">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.9">
+<link rel="icon" href="favicon.ico?v=1.0.9" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -59,6 +59,11 @@
   .req-legend{font-size:11.5px;color:var(--muted);margin:6px 0 2px;}
   .req-legend .rq{display:inline-block;width:12px;height:12px;border:2px solid var(--amber);background:var(--amber-bg);border-radius:3px;vertical-align:-2px;}
   .req-legend .dn{display:inline-block;width:12px;height:12px;border:2px solid var(--green);background:#fff;border-radius:3px;vertical-align:-2px;}
+  /* 未入力のまま次の工程へ進もうとした時の強調表示（次画面移動を試みた時だけ付与） */
+  input.field-error,select.field-error{border:2px solid var(--red) !important;background:var(--red-bg) !important;}
+  .field-error-box{border:2px solid var(--red) !important;color:var(--red) !important;font-weight:700;border-radius:8px;padding:8px;background:var(--red-bg) !important;}
+  .field-error-msg{color:var(--red);font-size:11.5px;margin:-2px 0 6px;font-weight:700;}
+  #globalValidationBanner{background:var(--red-bg);color:var(--red);font-weight:700;text-align:center;border-radius:8px;padding:10px;margin:0 0 10px;}
   /* 計算表タブ上部の常駐バー（汚水/雨水・施工方向をスクロールしても表示し続ける） */
   .sticky-ctl{position:sticky;z-index:15;background:var(--bg);padding:8px 0 6px;
     display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--line);margin-bottom:8px;}
@@ -137,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.8" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.9" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.8</div>
+  <div class="t3">Version 1.0.9</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -168,6 +173,8 @@
 
 <main>
 
+  <div id="globalValidationBanner" style="display:none;">未入力の必須項目があります</div>
+
   <!-- ============ TAB 1: 基準点・器械 ============ -->
   <div class="section active" id="tab-station">
 
@@ -183,9 +190,9 @@
 
     <div class="card">
       <h2>📍 基準点(BM)</h2>
-      <label class="first">BM表示ラベル</label>
-      <input type="text" id="inBmLabel" placeholder="BM±0">
-      <div class="hint">BM(ベンチマーク)を高さ ±0 の基準として、以降の全ての高さを「BM＋◯◯mm」の形式で表示します。</div>
+      <label class="first">基準点の場所・名称</label>
+      <input type="text" id="inBmLabel" placeholder="例：道路マンホール天端、境界鋲、仮BM">
+      <div class="hint">高さの基準にした場所の名称です。計算に使用する実測値は、下の『BMを後視した読み』に入力します。</div>
     </div>
 
     <div class="card">
@@ -370,7 +377,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.8<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.9<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -870,6 +877,9 @@
   const SEWAGE_MASU_DUAL_TYPES = ['DR','DRW']; // 上流/下流 個別手入力
   const RAIN_MASU_TYPE_LABELS = { '':'未選択', small:'小口径桝', box:'桶桝', discharge:'放流' };
   const SEWAGE_MASU_TYPE_LABELS = Object.assign({ '':'未選択' }, Object.fromEntries(SEWAGE_MASU_TYPES.map(t=>[t, t==='custom'?'カスタム':t])));
+  function masuTypeLabelFor(mt, isSewage){
+    return isSewage ? (SEWAGE_MASU_TYPE_LABELS[mt.type||'']||'') : (RAIN_MASU_TYPE_LABELS[mt.type||'']||'');
+  }
   function defaultMasuType(){
     return {
       type: '',
@@ -1766,9 +1776,130 @@
     document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active', s.id===tabId));
     window.scrollTo(0,0);
   }
-  App.goToTab = goToTab; // 「始点を編集」ボタン等からタブを直接切り替えるために公開
+  App.goToTab = goToTab; // 「始点を編集」ボタン等から前段階のタブへ戻るために公開（戻る操作は検証しない）
+
+  // ---------- 未入力チェック（次の工程へ進む前の必須項目検証） ----------
+  // 空文字/null/undefinedのみ「未入力」とみなす。数値の0は入力済み扱い（!valueで判定しない）。
+  function isEmptyVal(v){ return v===null || v===undefined || v===''; }
+
+  // 「器械」タブ：次の計算(勾配/始点)に必要な最低限＝器械が1台も設置されていなければ、
+  // 1台目の「BMを後視した読み」が必須。TP盛替え(2台目以降)は必要な現場のみ使う任意操作のため対象外。
+  function validateStationTab(){
+    const issues = [];
+    if(!state.stations.length){
+      issues.push({
+        fieldId: 'fBsBm',
+        msg: 'BMを後視した読みを入力してください',
+        ensureVisible: ()=>{ if(formFirst.style.display==='none') btnAddStation.click(); }
+      });
+    }
+    return issues;
+  }
+
+  // 「勾配/始点」タブ：次の計算(計算表)に必要な項目のみを対象にする。
+  // 入力方法によって不要になる項目（例：始点を直接入力する場合は現地読みは不要）は対象にしない。
+  function validateSlopeTab(){
+    const issues = [];
+    if(state.slope.mode==='custom' && (isEmptyVal(state.slope.customN) || isNaN(Number(state.slope.customN)))){
+      issues.push({ fieldId:'inCustomN', msg:'カスタム勾配の分母を入力してください' });
+    }
+    if(state.start.method==='measure'){
+      if(isEmptyVal(state.start.readingM)){
+        issues.push({ fieldId:'inStartReading', msg:'始点の読みを入力してください' });
+      }
+    } else if(state.start.method==='direct'){
+      if(isEmptyVal(state.start.directMm)){
+        issues.push({ fieldId:'inStartDirect', msg:'始点高さを入力してください' });
+      }
+    } else if(state.start.method==='gl'){
+      if(!state.checks.length){
+        issues.push({ fieldId:'startGlNoCheckHint', msg:'設計GL照合を先に「器械」タブで追加してください' });
+      } else if(isEmptyVal(state.start.glDepthMm)){
+        issues.push({ fieldId:'inStartGlDepth', msg:'設計GLからの深さを入力してください' });
+      }
+    }
+    return issues;
+  }
+
+  function showValidationBanner(msg){
+    const b = document.getElementById('globalValidationBanner');
+    if(b){ b.textContent = msg; b.style.display='block'; }
+  }
+  function hideValidationBanner(){
+    const b = document.getElementById('globalValidationBanner');
+    if(b) b.style.display='none';
+  }
+  function showFieldError(fieldId, msg){
+    const el = document.getElementById(fieldId);
+    if(!el) return;
+    const isInput = el.tagName==='INPUT' || el.tagName==='SELECT' || el.tagName==='TEXTAREA';
+    if(isInput){
+      el.classList.add('field-error');
+      let msgEl = el.nextElementSibling;
+      if(!msgEl || !msgEl.classList || !msgEl.classList.contains('field-error-msg')){
+        msgEl = document.createElement('div');
+        msgEl.className = 'field-error-msg';
+        el.insertAdjacentElement('afterend', msgEl);
+      }
+      msgEl.textContent = msg;
+    } else {
+      el.classList.add('field-error-box');
+    }
+  }
+  function clearFieldErrors(){
+    document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
+    document.querySelectorAll('.field-error-box').forEach(el=>el.classList.remove('field-error-box'));
+    document.querySelectorAll('.field-error-msg').forEach(el=>el.remove());
+  }
+  function applyValidationIssues(issues){
+    issues.forEach(iss=>{ if(iss.ensureVisible) iss.ensureVisible(); });
+    showValidationBanner('未入力の必須項目があります');
+    issues.forEach(iss=>{ if(iss.fieldId) showFieldError(iss.fieldId, iss.msg); });
+    const first = issues[0];
+    if(first && first.fieldId){
+      setTimeout(()=>{
+        const el = document.getElementById(first.fieldId);
+        if(el){
+          el.scrollIntoView({ behavior:'smooth', block:'center' });
+          if(typeof el.focus==='function') el.focus({ preventScroll:true });
+        }
+      }, 60);
+    }
+  }
+  // タブ移動ボタン(下部ナビ)からの遷移はここを必ず通す。前段階の必須項目を検証し、
+  // 未入力があれば該当タブへ留まり（または該当タブへ戻し）、最初の不足欄を強調・自動スクロールする。
+  function attemptGoToTab(targetTabId){
+    clearFieldErrors();
+    hideValidationBanner();
+    if(targetTabId==='tab-slope' || targetTabId==='tab-points'){
+      const stationIssues = validateStationTab();
+      if(stationIssues.length){
+        goToTab('tab-station');
+        applyValidationIssues(stationIssues);
+        return;
+      }
+    }
+    if(targetTabId==='tab-points'){
+      const slopeIssues = validateSlopeTab();
+      if(slopeIssues.length){
+        goToTab('tab-slope');
+        applyValidationIssues(slopeIssues);
+        return;
+      }
+    }
+    goToTab(targetTabId);
+  }
   document.querySelectorAll('.tab-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ goToTab(btn.dataset.tab); });
+    btn.addEventListener('click', ()=>{ attemptGoToTab(btn.dataset.tab); });
+  });
+  // 未入力エラー表示中に該当欄へ入力し始めたら、その場でエラー表示を解除する
+  document.addEventListener('input', e=>{
+    if(e.target && e.target.classList && e.target.classList.contains('field-error')){
+      e.target.classList.remove('field-error');
+      const msgEl = e.target.nextElementSibling;
+      if(msgEl && msgEl.classList && msgEl.classList.contains('field-error-msg')) msgEl.remove();
+      if(!document.querySelector('.field-error, .field-error-box')) hideValidationBanner();
+    }
   });
 
   // ---------- モーダル ----------
@@ -2265,7 +2396,9 @@
     showModal('全てのデータを消去して新規作成します。保存していない内容は失われます。よろしいですか？', ()=>{
       flushPendingEdit();
       if(pointsRenderTimer){ clearTimeout(pointsRenderTimer); pointsRenderTimer=null; }
-      state = defaultState();
+      if(draftSaveTimer){ clearTimeout(draftSaveTimer); draftSaveTimer=null; }
+      pendingEditKey = null; pendingEditSnapshot = null;
+      state = defaultState(); // 使い回さず、毎回新しい初期状態オブジェクトを生成する
       site = { version:2, siteName:'', currentLineId:MAIN_LINE, lines:{} };
       site.lines[MAIN_LINE] = state;
       currentFileBase = null; // ファイル文脈もクリア
@@ -2274,6 +2407,16 @@
       redoStack = [];
       clearWorkingDraft();
       markSaved(); // 既定状態を基準にし、以後の入力で＊未保存表示になる
+      // 入力途中のまま残る一時フォーム（器械を追加・設計GL確認を追加）は state に属さないDOM値のため、
+      // 明示的に閉じて空欄に戻す（開いたままだと前回入力した数字が画面に残ってしまう不具合の原因）
+      closeStationForms();
+      closeCheckForm();
+      ['fBsBm','fTpLabel','fFsOld','fBsNew','fCheckOffset','fCheckReading'].forEach(id=>{
+        const el = document.getElementById(id);
+        if(el) el.value = '';
+      });
+      clearFieldErrors();
+      hideValidationBanner();
       syncFormFields();
       renderAll();
       goToTab('tab-station');
@@ -2353,9 +2496,7 @@
     const cums = cumulativeDistances();
     const results = computeAllPoints();
     const isSewagePipe = state.pipe.type === 'sewage';
-    function masuTypeLabel(mt){
-      return isSewagePipe ? (SEWAGE_MASU_TYPE_LABELS[mt.type||'']||'') : (RAIN_MASU_TYPE_LABELS[mt.type||'']||'');
-    }
+    function masuTypeLabel(mt){ return masuTypeLabelFor(mt, isSewagePipe); }
     function masuStepDesc(mt){
       if(isSewagePipe){
         if(SEWAGE_MASU_STEP_TYPES.includes(mt.type)) return '自動段差(下流側が上流側より30mm下がる・施工方向に関わらず一定)';
@@ -2490,6 +2631,138 @@
     });
     return { rows, boldRows };
   }
+
+  // ---------- 現場用の簡易Excel出力（通常のExcel出力用） ----------
+  // 器械設置記録・設計GL照合・判定・上流側/下流側の詳細設計値などは含めず、
+  // 「桝種・桝No.・高さ・落差・距離・勾配」の6項目だけの現場用計算表にする。
+  // 既存の計算エンジン(computeAllPoints/computeStartRow等)をそのまま使い、値を新しく作り直さないことで、
+  // 画面の計算結果とExcelの値が必ず一致するようにする。
+  //
+  // 汚水/雨水は種別ごとにデータを保持している(state.jobs)ため、今アクティブでない側のデータを一時的に
+  // 現在のstateへ複製し、計算後に元へ戻す（renderは呼ばないため画面表示には影響しない）。
+  function withJobType(type, fn){
+    if(type === state.pipe.type){ return fn(); }
+    const savedJob = state.jobs && state.jobs[type];
+    if(!savedJob) return null; // その種別のデータが一度も作られていない
+    const backup = {};
+    JOB_FIELDS.forEach(f=>{ backup[f] = (f==='pipeSize') ? state.pipe.size : state[f]; });
+    const backupPipeType = state.pipe.type;
+    restoreJob(savedJob);
+    state.pipe.type = type;
+    let result;
+    try{ result = fn(); }
+    finally{
+      JOB_FIELDS.forEach(f=>{ if(f==='pipeSize'){ state.pipe.size = backup.pipeSize; } else { state[f] = backup[f]; } });
+      state.pipe.type = backupPipeType;
+    }
+    return result;
+  }
+  function computeJobSnapshotForType(type){
+    return withJobType(type, ()=>{
+      if(!state.points.length && getStartElevMm()===null) return null; // 表示できる計算結果が何も無い
+      return {
+        startRow: computeStartRow(),
+        results: computeAllPoints(),
+        points: state.points,
+        dirDown: state.slope.direction==='down',
+        pipeSize: state.pipe.size,
+        isSewage: state.pipe.type==='sewage'
+      };
+    });
+  }
+  function roundMm(v){
+    return (v===null || v===undefined || isNaN(v)) ? '' : Math.round(v*10)/10;
+  }
+  // 桝1件分の「高さ」を求める：実測値があればそれ(as-built)を、無ければ設計値を使う（他の計算表と同じ考え方）。
+  // 段差桝は上流側・下流側それぞれの高さを返す。
+  function rowHeightPair(r){
+    if(r.hasSplit){
+      const up = (r.actualElevUpMm!==null && r.actualElevUpMm!==undefined) ? r.actualElevUpMm : r.designUpstreamMm;
+      const down = (r.actualElevDownMm!==null && r.actualElevDownMm!==undefined) ? r.actualElevDownMm : r.designDownstreamMm;
+      return { hasSplit:true, up, down };
+    }
+    const h = (r.actualElevMm!==null && r.actualElevMm!==undefined) ? r.actualElevMm : r.designElevMm;
+    return { hasSplit:false, height:h };
+  }
+  // No.1(始点)〜最終地点までを「桝の行」「桝と桝の間の行」「桝内段差の行」の並びに組み立てる。
+  function buildSimpleMasuRows(snap){
+    const { startRow, results, points, dirDown, isSewage } = snap;
+    const masuRows = [];
+    function pushMasu(masuNo, mt, pair){
+      const label = masuTypeLabelFor(mt, isSewage);
+      if(pair.hasSplit){
+        masuRows.push({ kind:'masu', masuType:label, masuNo, height:pair.up });
+        masuRows.push({ kind:'innerstep', stepMm: (pair.up===null||pair.up===undefined||pair.down===null||pair.down===undefined) ? null : (pair.down-pair.up) });
+        masuRows.push({ kind:'masu', masuType:label, masuNo, height:pair.down });
+      } else {
+        masuRows.push({ kind:'masu', masuType:label, masuNo, height:pair.height });
+      }
+    }
+    function forwardHeightOf(pair){ return pair.hasSplit ? (dirDown ? pair.down : pair.up) : pair.height; }
+    function entryHeightOf(pair){ return pair.hasSplit ? (dirDown ? pair.up : pair.down) : pair.height; }
+
+    const startPair = rowHeightPair(startRow);
+    pushMasu('No.1', startRow.masuType, startPair);
+    let prevForwardHeight = forwardHeightOf(startPair);
+
+    points.forEach((p,i)=>{
+      const r = results[i];
+      const distMm = Math.round((Number(p.distanceInputM)||0)*1000);
+      const pair = rowHeightPair(r);
+      const entryH = entryHeightOf(pair);
+      let dropMm=null, slopePerMille=null;
+      if(prevForwardHeight!==null && prevForwardHeight!==undefined && entryH!==null && entryH!==undefined){
+        dropMm = dirDown ? (prevForwardHeight-entryH) : (entryH-prevForwardHeight);
+        if(distMm>0) slopePerMille = Math.round((dropMm/distMm)*1000*10)/10;
+      }
+      masuRows.push({ kind:'between', dropMm, distMm, slopePerMille });
+      pushMasu(p.label, effectiveMasuType(p), pair);
+      prevForwardHeight = forwardHeightOf(pair);
+    });
+    return masuRows;
+  }
+  function buildSimpleSheetRowsForType(type){
+    const snap = computeJobSnapshotForType(type);
+    if(!snap) return null;
+    const rows = [];
+    const boldRows = [];
+    function pushBold(row){ boldRows.push(rows.length); rows.push(row); }
+    pushBold([(type==='sewage'?'【汚水】':'【雨水】')+'　管径'+snap.pipeSize+'mm']);
+    pushBold(['桝種','桝No.','高さ(mm)','落差(mm)','距離(mm)','勾配(‰)']);
+    buildSimpleMasuRows(snap).forEach(mr=>{
+      if(mr.kind==='masu'){
+        rows.push([mr.masuType, mr.masuNo, roundMm(mr.height), '', '', '']);
+      } else if(mr.kind==='innerstep'){
+        rows.push(['', '(桝内段差)', '', roundMm(mr.stepMm), '', '']);
+      } else {
+        rows.push(['', '', '', roundMm(mr.dropMm), mr.distMm||'', mr.slopePerMille===null?'':mr.slopePerMille]);
+      }
+    });
+    return { rows, boldRows };
+  }
+  // Excel(.xlsx)出力専用：現場用の簡潔な計算表（汚水・雨水を分けて6項目のみ）
+  function buildSimpleExcelTableRows(){
+    const rows = [];
+    const boldRows = [];
+    function pushBold(row){ boldRows.push(rows.length); rows.push(row); }
+    pushBold(['配管勾配計算表']);
+    rows.push(['現場名', state.project.name||'']);
+    rows.push(['作業日', state.project.date||'']);
+    rows.push([]);
+    let any = false;
+    ['sewage','rain'].forEach(type=>{
+      const section = buildSimpleSheetRowsForType(type);
+      if(!section) return;
+      any = true;
+      const offset = rows.length;
+      section.boldRows.forEach(bi=>boldRows.push(bi+offset));
+      section.rows.forEach(r=>rows.push(r));
+      rows.push([]);
+    });
+    if(!any) rows.push(['まだ計算データがありません']);
+    return { rows, boldRows };
+  }
+
   function buildCsvContent(){
     const { rows } = buildTableRows();
     return '﻿' + rows.map(row=>row.map(csvEscape).join(',')).join('\r\n');
@@ -2636,10 +2909,12 @@
       +'</worksheet>';
   }
   function buildXlsxBlob(){
-    const { rows, boldRows } = buildTableRows();
+    // 通常のExcel出力は現場用の簡易版（桝種・桝No.・高さ・落差・距離・勾配の6項目、汚水/雨水別）。
+    // 詳細な確認用データ(器械設置記録・設計GL照合・判定等)はCSV出力(buildTableRows)側に残す。
+    const { rows, boldRows } = buildSimpleExcelTableRows();
     const boldRowSet = new Set(boldRows);
-    // 太字見出し行のうち最後のもの＝勾配計算表の列見出し行。ここを固定してオートフィルタも付ける。
-    const mainHeaderRowIdx = boldRows.length ? boldRows[boldRows.length-1] : null;
+    // 見出し行が汚水・雨水で2つに分かれるため、単一テーブル前提の固定表示/オートフィルタは付けない。
+    const mainHeaderRowIdx = null;
     const sheetXml = buildSheetXml(rows, boldRowSet, mainHeaderRowIdx);
 
     const contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -2749,7 +3024,7 @@
   });
 
   // デバッグ/検証用（アプリの動作には影響しません）
-  App._debug = { computeAllPoints, computeStartRow, buildCsvContent, buildTextSummary, buildFileBaseName, buildXlsxBlob, buildTableRows, getState:()=>state, getSite:()=>site, switchLine, nextBranchId };
+  App._debug = { computeAllPoints, computeStartRow, buildCsvContent, buildTextSummary, buildFileBaseName, buildXlsxBlob, buildTableRows, buildSimpleExcelTableRows, getState:()=>state, getSite:()=>site, switchLine, nextBranchId };
 
   // ---------- 初期化 ----------
   // 旧形式(単体ファイル)取り込み時に汚水を選択状態にするための関数
@@ -2757,7 +3032,7 @@
   function ensureSewageSelected(){
     if(state.pipe.type !== 'sewage') switchPipeType('sewage');
   }
-  // v1.0.8: 未保存の作業用一時データだけ復元する。
+  // v1.0.9: 未保存の作業用一時データだけ復元する。
   // 「現場保存」済みなら一時データは消えているため、新しいファイルから開始する。
   (function initSite(){
     let restoredDraft = false;
