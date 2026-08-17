@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.10">
+<link rel="manifest" href="manifest.json?v=1.0.11">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.10">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.10">
-<link rel="icon" href="favicon.ico?v=1.0.10" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.11">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.11">
+<link rel="icon" href="favicon.ico?v=1.0.11" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.10" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.11" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.10</div>
+  <div class="t3">Version 1.0.11</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -377,7 +377,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.10<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.11<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -2701,51 +2701,108 @@
   function roundMm(v){
     return (v===null || v===undefined || isNaN(v)) ? '' : Math.round(v*10)/10;
   }
-  // 桝1件分の「高さ」を求める：実測値があればそれ(as-built)を、無ければ設計値を使う（他の計算表と同じ考え方）。
-  // 段差桝は上流側・下流側それぞれの高さを返す。
-  function rowHeightPair(r){
-    if(r.hasSplit){
-      const up = (r.actualElevUpMm!==null && r.actualElevUpMm!==undefined) ? r.actualElevUpMm : r.designUpstreamMm;
-      const down = (r.actualElevDownMm!==null && r.actualElevDownMm!==undefined) ? r.actualElevDownMm : r.designDownstreamMm;
-      return { hasSplit:true, up, down };
+  // BM基準の高さ(invert基準の設計/実測値)を、その地点で実際に読んだであろう「レベル読み値(mm)」へ
+  // 逆変換する。実測読みが無い側(自動段差の計算側・No.1の段差桝で施工手前側が始点高さ固定の側)を
+  // 「読み値」として表示するために使う（実測読みが直接ある側は、この関数を使わず保存値をそのまま使う）。
+  function invertElevMmToReadingMm(elevInvertMm, st, measureLoc, offsetMm){
+    if(!st || elevInvertMm===null || elevInvertMm===undefined || isNaN(elevInvertMm)) return null;
+    const rawElevMm = measureLoc==='top' ? (elevInvertMm + (offsetMm||0)) : elevInvertMm;
+    return Math.round(st.ihMm - rawElevMm);
+  }
+  function hasVal(v){ return v!==null && v!==undefined && v!==''; }
+  // 桝1件分の「高さ」を、BM基準の高さではなく現場で読んだ「実測読み値(mm)」で求める。
+  // ・実測値が保存されていればそれをそのままmmに変換して使う(0やNaNで埋めない＝未入力はnull)。
+  // ・段差桝は流入側(upstream)・流出側(downstream)を別々に求める。
+  //   - 上流/下流を個別入力する桝(DR/DRW・桶桝)：入力が無い側は、桶桝の自動補完値がある場合のみ
+  //     それを使い、upComputed/downComputedをtrueにして「実測に見せない」ためのフラグを立てる。
+  //   - 自動段差(90YS等)：実測欄は1つ(=常に流入側)。流出側は既定段差からの計算値のためdownComputed=trueにする。
+  //   - No.1(始点)の段差桝で、施工が来る手前側(backward側)は「始点高さ」そのものであり実測読みではないため、
+  //     upStartFixed/downStartFixedをtrueにする。
+  function rowReadingInfo(r, dirDown, isStart, p){
+    const mt = r.masuType || defaultMasuType();
+    if(!r.hasSplit){
+      const raw = isStart ? state.start.actualReadingM : (p && p.actualReadingM);
+      return { hasSplit:false, readingMm: hasVal(raw) ? Math.round(Number(raw)*1000) : null };
     }
-    const h = (r.actualElevMm!==null && r.actualElevMm!==undefined) ? r.actualElevMm : r.designElevMm;
-    return { hasSplit:false, height:h };
+    if(r.isDualReading){
+      if(isStart){
+        const backwardIsUp = dirDown; // dirDown時：backward=上流(始点高さ固定)／forward=下流(実測入力可)
+        const rawForward = backwardIsUp ? mt.downstreamActualReadingM : mt.upstreamActualReadingM;
+        const hasForward = hasVal(rawForward);
+        if(backwardIsUp){
+          return {
+            hasSplit:true,
+            upReadingMm: invertElevMmToReadingMm(r.designUpstreamMm, r.station, r.measureLoc, r.offsetMm), upComputed:false, upStartFixed:true,
+            downReadingMm: hasForward ? Math.round(Number(rawForward)*1000) : null, downComputed:false, downStartFixed:false
+          };
+        }
+        return {
+          hasSplit:true,
+          upReadingMm: hasForward ? Math.round(Number(rawForward)*1000) : null, upComputed:false, upStartFixed:false,
+          downReadingMm: invertElevMmToReadingMm(r.designDownstreamMm, r.station, r.measureLoc, r.offsetMm), downComputed:false, downStartFixed:true
+        };
+      }
+      // 通常地点：上流側/下流側を個別入力（雨水の桶桝は段差ありなら片側の実測から自動補完される）
+      const hasRawUp = hasVal(mt.upstreamActualReadingM);
+      const hasRawDown = hasVal(mt.downstreamActualReadingM);
+      let upReadingMm=null, upComputed=false, downReadingMm=null, downComputed=false;
+      if(hasRawUp){ upReadingMm = Math.round(Number(mt.upstreamActualReadingM)*1000); }
+      else if(hasVal(r.effectiveUpActualReadingM)){ upReadingMm = Math.round(Number(r.effectiveUpActualReadingM)*1000); upComputed = true; }
+      if(hasRawDown){ downReadingMm = Math.round(Number(mt.downstreamActualReadingM)*1000); }
+      else if(hasVal(r.effectiveDownActualReadingM)){ downReadingMm = Math.round(Number(r.effectiveDownActualReadingM)*1000); downComputed = true; }
+      return { hasSplit:true, upReadingMm, upComputed, downReadingMm, downComputed };
+    }
+    // 自動段差(90YS等)：単一実測欄=常に流入(上流)側として扱う。流出(下流)側は既定段差からの計算値。
+    const raw = isStart ? state.start.actualReadingM : (p && p.actualReadingM);
+    if(!hasVal(raw)) return { hasSplit:true, upReadingMm:null, upComputed:false, downReadingMm:null, downComputed:false };
+    return {
+      hasSplit:true,
+      upReadingMm: Math.round(Number(raw)*1000), upComputed:false,
+      downReadingMm: invertElevMmToReadingMm(r.actualElevDownMm, r.station, r.measureLoc, r.offsetMm), downComputed:true
+    };
   }
   // No.1(始点)〜最終地点までを「桝の行」「桝と桝の間の行」「桝内段差の行」の並びに組み立てる。
+  // 高さは全てBM基準の高さではなく「実測読み値(mm)」。落差・勾配もこの読み値どうしの差から求める。
   function buildSimpleMasuRows(snap){
     const { startRow, results, points, dirDown, isSewage } = snap;
     const masuRows = [];
-    function pushMasu(masuNo, mt, pair){
+    function pushMasu(masuNo, mt, info){
       const label = masuTypeLabelFor(mt, isSewage);
-      if(pair.hasSplit){
-        masuRows.push({ kind:'masu', masuType:label, masuNo, height:pair.up });
-        masuRows.push({ kind:'innerstep', stepMm: (pair.up===null||pair.up===undefined||pair.down===null||pair.down===undefined) ? null : (pair.down-pair.up) });
-        masuRows.push({ kind:'masu', masuType:label, masuNo, height:pair.down });
+      if(info.hasSplit){
+        const upTag = '（流入'+(info.upComputed?'・計算':(info.upStartFixed?'・始点':''))+'）';
+        const downTag = '（流出'+(info.downComputed?'・計算':(info.downStartFixed?'・始点':''))+'）';
+        // 桝内段差＝流出側読み値－流入側読み値（どちらか欠けている場合はnullのまま表示しない）
+        const stepMm = (info.upReadingMm===null || info.downReadingMm===null) ? null : (info.downReadingMm - info.upReadingMm);
+        masuRows.push({ kind:'masu', masuType:label, masuNo: masuNo+upTag, height:info.upReadingMm });
+        masuRows.push({ kind:'innerstep', stepMm });
+        masuRows.push({ kind:'masu', masuType:label, masuNo: masuNo+downTag, height:info.downReadingMm });
       } else {
-        masuRows.push({ kind:'masu', masuType:label, masuNo, height:pair.height });
+        masuRows.push({ kind:'masu', masuType:label, masuNo, height:info.readingMm });
       }
     }
-    function forwardHeightOf(pair){ return pair.hasSplit ? (dirDown ? pair.down : pair.up) : pair.height; }
-    function entryHeightOf(pair){ return pair.hasSplit ? (dirDown ? pair.up : pair.down) : pair.height; }
+    // 流入(up)は常に施工が来る手前側とは限らないため、区間をまたぐ「前桝→次桝」の接続は施工方向で決める：
+    // 上流から施工(dirDown)なら「前桝の流出→次桝の流入」、下流から施工なら向きが逆になる。
+    function forwardReadingOf(info){ return info.hasSplit ? (dirDown ? info.downReadingMm : info.upReadingMm) : info.readingMm; }
+    function entryReadingOf(info){ return info.hasSplit ? (dirDown ? info.upReadingMm : info.downReadingMm) : info.readingMm; }
 
-    const startPair = rowHeightPair(startRow);
-    pushMasu('No.1', startRow.masuType, startPair);
-    let prevForwardHeight = forwardHeightOf(startPair);
+    const startInfo = rowReadingInfo(startRow, dirDown, true, null);
+    pushMasu('No.1', startRow.masuType, startInfo);
+    let prevForwardReading = forwardReadingOf(startInfo);
 
     points.forEach((p,i)=>{
       const r = results[i];
       const distMm = Math.round((Number(p.distanceInputM)||0)*1000);
-      const pair = rowHeightPair(r);
-      const entryH = entryHeightOf(pair);
+      const info = rowReadingInfo(r, dirDown, false, p);
+      const entryReading = entryReadingOf(info);
       let dropMm=null, slopePerMille=null;
-      if(prevForwardHeight!==null && prevForwardHeight!==undefined && entryH!==null && entryH!==undefined){
-        dropMm = dirDown ? (prevForwardHeight-entryH) : (entryH-prevForwardHeight);
+      if(hasVal(prevForwardReading) && hasVal(entryReading)){
+        // レベル読みは下がるほど大きな数値になるため、符号関係はBM高さの差とは逆になる。
+        dropMm = dirDown ? (entryReading - prevForwardReading) : (prevForwardReading - entryReading);
         if(distMm>0) slopePerMille = Math.round((dropMm/distMm)*1000*10)/10;
       }
       masuRows.push({ kind:'between', dropMm, distMm, slopePerMille });
-      pushMasu(p.label, effectiveMasuType(p), pair);
-      prevForwardHeight = forwardHeightOf(pair);
+      pushMasu(p.label, effectiveMasuType(p), info);
+      prevForwardReading = forwardReadingOf(info);
     });
     return masuRows;
   }
@@ -2756,7 +2813,7 @@
     const boldRows = [];
     function pushBold(row){ boldRows.push(rows.length); rows.push(row); }
     pushBold([(type==='sewage'?'【汚水】':'【雨水】')+'　管径'+snap.pipeSize+'mm']);
-    pushBold(['桝種','桝No.','高さ(mm)','落差(mm)','距離(mm)','勾配(‰)']);
+    pushBold(['桝種','桝No.','高さ\n（実測読み・mm）','落差(mm)','距離(mm)','勾配(‰)']);
     buildSimpleMasuRows(snap).forEach(mr=>{
       if(mr.kind==='masu'){
         rows.push([mr.masuType, mr.masuNo, roundMm(mr.height), '', '', '']);
@@ -2900,17 +2957,24 @@
       const rIdx = ri+1;
       const bold = boldRowSet.has(ri);
       let cellsXml = '';
+      let rowHasNewline = false;
       row.forEach((val,ci)=>{
         if(val===null || val===undefined || val==='') return;
         const ref = xlsxColLetter(ci)+rIdx;
-        const styleAttr = bold ? ' s="1"' : '';
+        // 見出しの「高さ（実測読み・mm）」のようにセル内に改行を含む場合は、折り返し表示用のスタイルにする
+        // （A4縦幅に収めるため、列幅を広げず1セル内で2行表示にする）
+        const hasNewline = typeof val==='string' && val.indexOf('\n')!==-1;
+        if(hasNewline) rowHasNewline = true;
+        const styleIdx = bold ? (hasNewline ? 2 : 1) : 0;
+        const styleAttr = styleIdx ? ' s="'+styleIdx+'"' : '';
         if(isPlainNumber(val)){
           cellsXml += '<c r="'+ref+'"'+styleAttr+'><v>'+Number(val)+'</v></c>';
         } else {
           cellsXml += '<c r="'+ref+'"'+styleAttr+' t="inlineStr"><is><t xml:space="preserve">'+xmlEscape(val)+'</t></is></c>';
         }
       });
-      rowsXml += '<row r="'+rIdx+'">'+cellsXml+'</row>';
+      const rowAttrs = rowHasNewline ? ' ht="28" customHeight="1"' : '';
+      rowsXml += '<row r="'+rIdx+'"'+rowAttrs+'>'+cellsXml+'</row>';
     });
     // 勾配計算表の見出し行までを固定し、地点数が多くてもスクロール中に見出しが見えるようにする
     let sheetViewsXml = '';
@@ -2972,9 +3036,11 @@
       +'<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
       +'<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
       +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-      +'<cellXfs count="2">'
+      +'<cellXfs count="3">'
       +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
       +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+      // s="2": 太字＋折り返し。見出し「高さ（実測読み・mm）」をセル内2行にしてA4縦幅に収めるためのスタイル
+      +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment wrapText="1"/></xf>'
       +'</cellXfs>'
       +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
       +'</styleSheet>';
@@ -3060,7 +3126,7 @@
   function ensureSewageSelected(){
     if(state.pipe.type !== 'sewage') switchPipeType('sewage');
   }
-  // v1.0.10: 未保存の作業用一時データだけ復元する。
+  // v1.0.11: 未保存の作業用一時データだけ復元する。
   // 「現場保存」済みなら一時データは消えているため、新しいファイルから開始する。
   (function initSite(){
     let restoredDraft = false;
