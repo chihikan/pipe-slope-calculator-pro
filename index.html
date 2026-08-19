@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.11">
+<link rel="manifest" href="manifest.json?v=1.0.12">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.11">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.11">
-<link rel="icon" href="favicon.ico?v=1.0.11" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.12">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.12">
+<link rel="icon" href="favicon.ico?v=1.0.12" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.11" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.12" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.11</div>
+  <div class="t3">Version 1.0.12</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -377,7 +377,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.11<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.12<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -1062,6 +1062,56 @@
     return arr;
   }
 
+  // ---------- 区間の勾配判定（合否は実測勾配だけで行う。高さの許容差は使わない） ----------
+  // 勾配設定(勾配限度)で選んだ値が、その区間に必要な最低限の勾配（＝合格の限度線）。
+  // 実測落差・区間距離は「丸める前」の値をそのまま使い、クロス乗算（浮動小数点の丸め誤差を避けるため
+  // 実測落差×限度分母 ≧ 区間距離 で比較＝実測分母が限度分母以下）で判定する。
+  // 水平(落差0)・逆勾配(落差マイナス)は常に不合格。上流/下流は実際の流下方向(backward→forward)で
+  // 既に統一されたactualDropMm/segDistMmを渡す前提（呼び出し側でdirDownに基づき算出済み）。
+  function evaluateSlopeJudge(actualDropMm, segDistMm){
+    if(actualDropMm===null || actualDropMm===undefined || !segDistMm || segDistMm<=0) return null;
+    const limitN = slopeN();
+    if(!limitN) return null;
+    if(actualDropMm<=0){
+      return { pass:false, limitN, actualN:null, kind: actualDropMm===0 ? 'level' : 'reverse', dropMm:actualDropMm, distMm:segDistMm };
+    }
+    const actualN = segDistMm/actualDropMm; // 実測の分母(丸めない)
+    const pass = (actualDropMm*limitN) >= (segDistMm - 1e-6); // 実測分母が限度分母以下ならOK
+    return { pass, limitN, actualN, kind:'normal', dropMm:actualDropMm, distMm:segDistMm };
+  }
+  function slopeActualDesc(sj){
+    if(!sj) return '';
+    if(sj.kind==='level') return '水平(勾配なし)';
+    if(sj.kind==='reverse') return '逆勾配';
+    return '1/'+(Math.round(sj.actualN*10)/10);
+  }
+  function slopeJudgeReasonText(sj){
+    if(!sj || sj.pass) return '';
+    return '必要勾配 1/'+sj.limitN+'以上・実測勾配 '+slopeActualDesc(sj)+'のため不合格';
+  }
+  // 目標値との差（施工調整用の参考値。合否判定には使わない）。
+  // 実測深さ－目標深さと同じ意味になるよう、内部のdiffMm(実測高－設計高)を符号反転する
+  // （深い＝プラス／浅い＝マイナス。読みの上下や施工方向には左右されない）。
+  function fmtSignedDiffMm(diffMm){
+    if(diffMm===null || diffMm===undefined) return '';
+    const signedMm = -diffMm;
+    const rounded = Math.round(signedMm*10)/10;
+    const sign = rounded>=0 ? '＋' : '－';
+    return sign+Math.abs(rounded)+'mm';
+  }
+  // 区間ごとの勾配判定を画面に表示するための共通ブロック（勾配限度・実測落差・区間距離・実測勾配・
+  // 勾配判定(合格/不合格)・不合格の理由）。sjが無い(実測データが無い)区間は何も表示しない。
+  function slopeJudgeBlockHtml(sj){
+    if(!sj) return '';
+    const dropRounded = Math.round(sj.dropMm*10)/10;
+    const distRounded = Math.round(sj.distMm*10)/10;
+    return '<div class="r" style="grid-column:1/3;">'
+      +'勾配限度<b>1/'+sj.limitN+'</b>　実測落差<b>'+dropRounded+'mm</b>　区間距離<b>'+distRounded+'mm</b>　実測勾配<b>'+slopeActualDesc(sj)+'</b>　'
+      +'勾配判定<span class="tag '+(sj.pass?'ok':'cut')+'">'+(sj.pass?'合格':'不合格')+'</span>'
+      + (sj.pass ? '' : '<div class="hint" style="margin-top:2px;">'+slopeJudgeReasonText(sj)+'</div>')
+      +'</div>';
+  }
+
   // 実測値による連鎖再計算：ある地点で実測読みが入力されると、その実測高(as-built)を
   // 次の地点以降の計算基準として自動的に引き継ぐ（現場で計算通りに施工できない前提の再計算）。
   //
@@ -1104,7 +1154,7 @@
       const isDualInput = isDualReadingType(state.pipe.type, mt.type); // 上流/下流を個別に手入力できる桝(DR/DRW・桶桝)か
 
       if(baseElevMm===null || !st || !N){
-        results.push({ designBeforeMm:null, designElevMm:null, requiredReadingM:null, requiredReadingInvertM:null, requiredReadingTopM:null, actualElevMm:null, diffMm:null, station:st, baseSource, actualSlopeN:null, sizeLabel:currentSizeLabel, offsetMm:currentOffsetMm,
+        results.push({ designBeforeMm:null, designElevMm:null, requiredReadingM:null, requiredReadingInvertM:null, requiredReadingTopM:null, actualElevMm:null, diffMm:null, station:st, baseSource, actualSlopeN:null, slopeJudge:null, sizeLabel:currentSizeLabel, offsetMm:currentOffsetMm,
           masuType:mt, isDualReading:isDualInput, hasSplit:false, designUpstreamMm:null, designDownstreamMm:null,
           requiredReadingUpM:null, requiredReadingDownM:null, requiredReadingUpInvertM:null, requiredReadingUpTopM:null, requiredReadingDownInvertM:null, requiredReadingDownTopM:null,
           actualElevUpMm:null, actualElevDownMm:null, diffUpMm:null, diffDownMm:null });
@@ -1124,7 +1174,7 @@
       const measureLoc = p.measureLoc || 'invert';
       const requiredReadingM = toMeasureLocReadingM(requiredReadingInvertM, measureLoc, currentOffsetMm);
 
-      let actualElevMm=null, diffMm=null, actualSlopeN=null;
+      let actualElevMm=null, diffMm=null, actualSlopeN=null, slopeJudge=null;
       let requiredReadingUpM=null, requiredReadingDownM=null, requiredReadingUpInvertM=null, requiredReadingUpTopM=null, requiredReadingDownInvertM=null, requiredReadingDownTopM=null;
       let actualElevUpMm=null, actualElevDownMm=null, diffUpMm=null, diffDownMm=null;
       let effectiveUpActualReadingM = mt.upstreamActualReadingM;
@@ -1173,6 +1223,7 @@
           if(actualDropMm>0){ actualSlopeN = Math.round(((segDist*1000)/actualDropMm)*10)/10; }
           else if(actualDropMm===0){ actualSlopeN = Infinity; }
           else { actualSlopeN = -1; }
+          slopeJudge = evaluateSlopeJudge(actualDropMm, segDist*1000);
         }
       } else if(hasSplit){
         // 自動段差(90YS等)：実測欄は1つだが、施工方向に関わらず常に「上流側の読み」として扱う。
@@ -1195,6 +1246,7 @@
             if(actualDropMm>0){ actualSlopeN = Math.round(((segDist*1000)/actualDropMm)*10)/10; }
             else if(actualDropMm===0){ actualSlopeN = Infinity; }
             else { actualSlopeN = -1; }
+            slopeJudge = evaluateSlopeJudge(actualDropMm, segDist*1000);
           }
         }
       } else {
@@ -1213,11 +1265,12 @@
             } else {
               actualSlopeN = -1; // 逆勾配（想定と逆方向に傾いている）目印
             }
+            slopeJudge = evaluateSlopeJudge(actualDropMm, segDist*1000);
           }
         }
       }
 
-      results.push({ designBeforeMm, designElevMm:design, requiredReadingM, requiredReadingInvertM, requiredReadingTopM, actualElevMm, diffMm, station:st, baseSource, actualSlopeN, sizeLabel:currentSizeLabel, offsetMm:currentOffsetMm,
+      results.push({ designBeforeMm, designElevMm:design, requiredReadingM, requiredReadingInvertM, requiredReadingTopM, actualElevMm, diffMm, station:st, baseSource, actualSlopeN, slopeJudge, sizeLabel:currentSizeLabel, offsetMm:currentOffsetMm,
         masuType:mt, isDualReading:isDualInput, hasSplit, designUpstreamMm, designDownstreamMm,
         requiredReadingUpM, requiredReadingDownM, requiredReadingUpInvertM, requiredReadingUpTopM, requiredReadingDownInvertM, requiredReadingDownTopM,
         actualElevUpMm, actualElevDownMm, diffUpMm, diffDownMm,
@@ -1320,19 +1373,16 @@
     }).join('');
   }
 
-  // 判定用の差分符号。下流から施工（上り）の場合は「切る/盛る」を逆にする（汚水・雨水共通）。
-  // 差のmm数値はそのまま、切る⇔盛るの表示だけが入れ替わる。
-  function judgeDiffMm(diffMm){
-    if(diffMm===null || diffMm===undefined) return diffMm;
-    return state.slope.direction==='up' ? -diffMm : diffMm;
-  }
+  // 設計GL照合(現地の実測がGL設計値と合っているかの確認)用のOK/NGタグ。許容差以内はOK、
+  // 以内でなければ符号付きmm(深い＝＋／浅い＝－。fmtSignedDiffMmと同じ考え方)を表示する。
+  // 「盛る/切る」の語は使わない。配管区間の合否(勾配判定)には使わない、GL照合専用の判定。
   function diffTag(diffMm){
     if(diffMm===null || diffMm===undefined) return '';
     const tol = Number(state.tolerance)||0;
     if(Math.abs(diffMm)<=tol) return '<span class="tag ok">OK</span>';
-    const jd = judgeDiffMm(diffMm);
-    if(jd>0) return '<span class="tag cut">切る '+Math.abs(Math.round(diffMm*10)/10)+'mm</span>';
-    return '<span class="tag fill">盛る '+Math.abs(Math.round(diffMm*10)/10)+'mm</span>';
+    const signedMm = -diffMm;
+    const cls = signedMm>0 ? 'fill' : 'cut';
+    return '<span class="tag '+cls+'">'+fmtSignedDiffMm(diffMm)+'</span>';
   }
 
   function escapeHtml(s){
@@ -1463,7 +1513,7 @@
       const diffMm = endElevMm - targetMm;
       const okJudge = Math.abs(diffMm) <= Number(state.tolerance||0);
       html += '<div class="r" style="margin-top:6px;">接続先目標<b>BM'+fmtMm(targetMm)+'</b>mm　との差<b>'+fmtMm(diffMm)+'</b>mm　'
-        + (okJudge ? '<span class="tag ok">接続可能(OK)</span>' : (diffMm>0 ? '<span class="tag cut">目標より高い→要検討(切る'+Math.abs(Math.round(diffMm*10)/10)+'mm相当)</span>' : '<span class="tag fill">目標より低い→要検討(盛る'+Math.abs(Math.round(diffMm*10)/10)+'mm相当)</span>'))
+        + (okJudge ? '<span class="tag ok">接続可能(OK)</span>' : '<span class="tag '+(diffMm>0?'cut':'fill')+'">要検討('+fmtSignedDiffMm(diffMm)+'相当)</span>')
         + '</div>';
     }
     wrap.innerHTML = html;
@@ -1498,25 +1548,26 @@
         const downCell = !upIsMirror
           ? '<div class="r">現況高(下流・管下換算)<b>BM'+fmtMm(r.actualElevDownMm)+'</b>mm<div class="hint" style="margin:2px 0 0;">※始点高さと同じ</div></div>'
           : (r.diffDownMm===null ? '<div class="r"><span style="color:var(--muted);">実測読みを入力すると表示</span></div>' : '<div class="r">現況高(下流・管下換算)<b>BM'+fmtMm(r.actualElevDownMm)+'</b>mm</div>');
-        const judgeDiffMm = dirDown ? r.diffDownMm : r.diffUpMm;
-        const judgeCells = judgeDiffMm===null ? '' : (upIsMirror
-          ? '<div class="r"></div><div class="r">判定(下流)<b>'+diffTag(judgeDiffMm)+'</b></div>'
-          : '<div class="r">判定(上流)<b>'+diffTag(judgeDiffMm)+'</b></div><div class="r"></div>');
-        actualBlock = upCell + downCell + judgeCells;
+        // 目標との差は施工調整用の参考値（合否判定には使わない。合否は勾配判定のみで行う）。
+        const refDiffMm = dirDown ? r.diffDownMm : r.diffUpMm;
+        const refCells = refDiffMm===null ? '' : (upIsMirror
+          ? '<div class="r"></div><div class="r">目標との差(下流)<b>'+fmtSignedDiffMm(refDiffMm)+'</b></div>'
+          : '<div class="r">目標との差(上流)<b>'+fmtSignedDiffMm(refDiffMm)+'</b></div><div class="r"></div>');
+        actualBlock = upCell + downCell + refCells;
       } else if(isDual){
-        // 判定(OK/切る/盛る)は上流側の実測値のみで行う。下流側は段差分ズレるのが設計通りであり、
-        // 独立した合否判定の対象にはしない（現況高の参考値は両側に表示する）。
+        // 目標との差(施工調整用の参考値)は上流側の実測値のみで表示する。下流側は段差分ズレるのが設計通り。
+        // 合否は高さの許容差ではなく、区間の実測勾配だけで判定する(slopeJudgeBlockHtmlを参照)。
         actualBlock = '<div class="r">現況高(上流・管下換算)'+(r.diffUpMm===null ? '<span style="color:var(--muted);">未入力</span>' : '<b>BM'+fmtMm(r.actualElevUpMm)+'</b>mm')+'</div>'
           +'<div class="r">現況高(下流・管下換算)'+(r.diffDownMm===null ? '<span style="color:var(--muted);">未入力</span>' : '<b>BM'+fmtMm(r.actualElevDownMm)+'</b>mm')+'</div>'
           + (r.diffUpMm===null ? '' : (
-              '<div class="r">判定(上流)<b>'+diffTag(r.diffUpMm)+'</b></div>'
+              '<div class="r">目標との差(上流)<b>'+fmtSignedDiffMm(r.diffUpMm)+'</b></div>'
               +'<div class="r"></div>'
             ));
       } else {
-        // 自動段差(90YS等)：実測欄は1つ・常に上流側の読みとして扱う。下流側は段差分を差し引いた参考値を表示するのみで、判定タグは出さない。
+        // 自動段差(90YS等)：実測欄は1つ・常に上流側の読みとして扱う。下流側は段差分を差し引いた参考値を表示するのみ。
         actualBlock = '<div class="r">'+(r.diffUpMm===null ? '<span style="color:var(--muted);">実測読みを入力すると表示</span>' : '現況高(上流・管下換算)<b>BM'+fmtMm(r.actualElevUpMm)+'</b>mm')+'</div>'
           +'<div class="r">'+(r.diffDownMm===null ? '<span style="color:var(--muted);">実測読みを入力すると表示</span>' : '現況高(下流・管下換算)<b>BM'+fmtMm(r.actualElevDownMm)+'</b>mm')+'</div>'
-          +'<div class="r">'+(r.diffUpMm===null ? '' : '判定(上流)<b>'+diffTag(r.diffUpMm)+'</b>')+'</div>'
+          +'<div class="r">'+(r.diffUpMm===null ? '' : '目標との差(上流)<b>'+fmtSignedDiffMm(r.diffUpMm)+'</b>')+'</div>'
           +'<div class="r"></div>';
       }
       return '<div class="result">'
@@ -1529,7 +1580,7 @@
         +'<div class="r">目標読み(上流側・管上)<b>'+fmtReadingMm(r.requiredReadingUpTopM)+'</b>mm</div>'
         +'<div class="r">目標読み(下流側・管上)<b>'+fmtReadingMm(r.requiredReadingDownTopM)+'</b>mm</div>'
         + actualBlock
-        + (r.actualSlopeN!==null && r.actualSlopeN!==undefined ? '<div class="r" style="grid-column:1/3;">実勾配(この区間・'+forwardLabel+'基準)<b>'+fmtSlopeN(r.actualSlopeN)+'</b>　※設定 1/'+slopeN()+'</div>' : '')
+        + slopeJudgeBlockHtml(r.slopeJudge)
         +'</div>';
     }
     return '<div class="result">'
@@ -1539,8 +1590,8 @@
       +'<div class="r">目標読み(管上)<b>'+fmtReadingMm(r.requiredReadingTopM)+'</b>mm</div>'
       + (r.diffMm===null ? '<div class="r" style="color:var(--muted);">実測読みを入力すると差を表示</div>'
          : '<div class="r">現況高(管下換算)<b>BM'+fmtMm(r.actualElevMm)+'</b>mm</div>')
-      + (r.diffMm===null ? '' : '<div class="r">判定<b>'+diffTag(r.diffMm)+'</b></div>')
-      + (r.actualSlopeN!==null && r.actualSlopeN!==undefined ? '<div class="r" style="grid-column:1/3;">実勾配(この区間)<b>'+fmtSlopeN(r.actualSlopeN)+'</b>　※設定 1/'+slopeN()+'</div>' : '')
+      + (r.diffMm===null ? '' : '<div class="r">目標との差<b>'+fmtSignedDiffMm(r.diffMm)+'</b></div>')
+      + slopeJudgeBlockHtml(r.slopeJudge)
       +'</div>';
   }
 
@@ -2518,9 +2569,11 @@
     pushBold(['--- 勾配計算表 ---']);
     // 上流側/下流側は常に両方の列を出力する（段差が無い地点は上流側=下流側=同じ値になる）。
     // これにより施工方向（上流から施工／下流から施工）によって列の意味が変わることがない。
-    pushBold(['No.','使用器械','距離入力(mm)','累計距離(mm)','計算基準','管サイズ','桝種類','適用段差','測定位置','実勾配(この区間)',
-      '上流側 設計高(mm)','上流側 目標読み・管下(mm)','上流側 目標読み・管上(mm)','上流側 実測読み(mm)','上流側 実測高・管下換算(mm)','上流側 差(mm)','上流側 判定',
-      '下流側 設計高(mm)','下流側 目標読み・管下(mm)','下流側 目標読み・管上(mm)','下流側 実測読み(mm)','下流側 実測高・管下換算(mm)','下流側 差(mm)','下流側 判定']);
+    // 合否(勾配判定)は上流/下流の実測値と区間距離から算出した実測勾配だけで行う（高さの許容差は使わない）。
+    // 「上流側/下流側 目標との差」は施工調整用の参考値(深い＝＋／浅い＝－)であり、合否には使わない。
+    pushBold(['No.','使用器械','距離入力(mm)','累計距離(mm)','計算基準','管サイズ','桝種類','適用段差','測定位置','実勾配(この区間)','勾配限度','勾配判定','不合格理由',
+      '上流側 設計高(mm)','上流側 目標読み・管下(mm)','上流側 目標読み・管上(mm)','上流側 実測読み(mm)','上流側 実測高・管下換算(mm)','上流側 差(mm)','上流側 目標との差(参考,mm)',
+      '下流側 設計高(mm)','下流側 目標読み・管下(mm)','下流側 目標読み・管上(mm)','下流側 実測読み(mm)','下流側 実測高・管下換算(mm)','下流側 差(mm)','下流側 目標との差(参考,mm)']);
     const cums = cumulativeDistances();
     const results = computeAllPoints();
     const isSewagePipe = state.pipe.type === 'sewage';
@@ -2535,11 +2588,10 @@
       if(mt.type==='box') return mt.boxStepEnabled ? ('段差あり(下流側が上流側より'+mt.boxMm+'mm下がる)') : '段差無し';
       return '';
     }
-    function judgeTextOf(diffMm){
-      if(diffMm===null||diffMm===undefined) return '';
-      if(Math.abs(diffMm)<=Number(state.tolerance||0)) return 'OK';
-      const jd = judgeDiffMm(diffMm); // 下流から施工の場合は切る/盛るを反転
-      return jd>0 ? ('切る'+Math.abs(Math.round(diffMm*10)/10)+'mm') : ('盛る'+Math.abs(Math.round(diffMm*10)/10)+'mm');
+    // 「目標との差」列は施工調整用の参考値のみ(fmtSignedDiffMmと同じ。合否判定には使わない)
+    function slopeJudgeTextOf(sj){
+      if(!sj) return '';
+      return sj.pass ? '合格' : '不合格';
     }
     // No.1（始点）の行：桝種類が選ばれていれば通常地点と同様に上流側/下流側で異なる値を出す。
     // 未選択(段差なし)の場合は、段差が無い地点なので上流側/下流側の列に同じ値を複製する。
@@ -2556,24 +2608,21 @@
 
       let upActualReadM=null, upActualElevMm=null, upDiffMm=null;
       let downActualReadM=null, downActualElevMm=null, downDiffMm=null;
-      let upJudge='', downJudge='';
       if(sr.isDualReading){
         // No.1(始点)は最上流(または最下流)の基準点そのもの。backward側(施工が来る手前側)は「始点高さ」を
-        // そのまま使うため実測欄・判定は出さず、forward側(次地点の計算基準になる側)のみ実測・判定対象にする。
+        // そのまま使うため実測欄は出さず、forward側(次地点の計算基準になる側)のみ実測対象にする。
         upActualElevMm = sr.actualElevUpMm; upDiffMm = sr.diffUpMm;
         downActualElevMm = sr.actualElevDownMm; downDiffMm = sr.diffDownMm;
-        if(dirDownPipe){ downActualReadM = mtStart.downstreamActualReadingM; downJudge = judgeTextOf(downDiffMm); }
-        else { upActualReadM = mtStart.upstreamActualReadingM; upJudge = judgeTextOf(upDiffMm); }
+        if(dirDownPipe){ downActualReadM = mtStart.downstreamActualReadingM; }
+        else { upActualReadM = mtStart.upstreamActualReadingM; }
       } else if(sr.hasSplit){
-        // 自動段差(90YS等)：実測欄は常に上流側の読み。下流側は自動算出のため実測読み自体は無い(現況高・差のみ参考表示)。判定は上流側のみ。
+        // 自動段差(90YS等)：実測欄は常に上流側の読み。下流側は自動算出のため実測読み自体は無い(現況高・差のみ参考表示)。
         upActualReadM = state.start.actualReadingM; upActualElevMm = sr.actualElevUpMm; upDiffMm = sr.diffUpMm;
         downActualElevMm = sr.actualElevDownMm; downDiffMm = sr.diffDownMm;
-        upJudge = judgeTextOf(upDiffMm);
       } else {
         upActualReadM = state.start.actualReadingM; downActualReadM = state.start.actualReadingM;
         upActualElevMm = sr.actualElevMm; downActualElevMm = sr.actualElevMm;
         upDiffMm = sr.diffMm; downDiffMm = sr.diffMm;
-        upJudge = judgeTextOf(upDiffMm); downJudge = judgeTextOf(downDiffMm);
       }
 
       rows.push([
@@ -2583,20 +2632,21 @@
         sr.actualElevMm!==null ? ('実測(No.1'+(sr.hasSplit?(dirDownPipe?'-下流':'-上流'):'')+')') : '始点',
         '', masuTypeLabel(mtStart), masuStepDesc(mtStart),
         (sr.measureLoc==='top')?'管上':'管下', '',
+        '', '', '', // 勾配限度・勾配判定・不合格理由：No.1には手前の区間が無いため対象外
         upDesignMm===null||upDesignMm===undefined?'':fmtMm(upDesignMm),
         upReadInvertM===null||upReadInvertM===undefined?'':fmtReadingMm(upReadInvertM),
         upReadTopM===null||upReadTopM===undefined?'':fmtReadingMm(upReadTopM),
         upActualReadM===null||upActualReadM===undefined||upActualReadM===''?'':fmtReadingMm(upActualReadM),
         upActualElevMm===null||upActualElevMm===undefined?'':fmtMm(upActualElevMm),
         upDiffMm===null||upDiffMm===undefined?'':fmtMm(upDiffMm),
-        upJudge,
+        fmtSignedDiffMm(upDiffMm),
         downDesignMm===null||downDesignMm===undefined?'':fmtMm(downDesignMm),
         downReadInvertM===null||downReadInvertM===undefined?'':fmtReadingMm(downReadInvertM),
         downReadTopM===null||downReadTopM===undefined?'':fmtReadingMm(downReadTopM),
         downActualReadM===null||downActualReadM===undefined||downActualReadM===''?'':fmtReadingMm(downActualReadM),
         downActualElevMm===null||downActualElevMm===undefined?'':fmtMm(downActualElevMm),
         downDiffMm===null||downDiffMm===undefined?'':fmtMm(downDiffMm),
-        downJudge
+        fmtSignedDiffMm(downDiffMm)
       ]);
     }
     state.points.forEach((p,i)=>{
@@ -2641,20 +2691,23 @@
         masuStepDesc(mt),
         (p.measureLoc==='top')?'管上':'管下',
         r.actualSlopeN===null||r.actualSlopeN===undefined?'':fmtSlopeN(r.actualSlopeN),
+        r.slopeJudge?('1/'+r.slopeJudge.limitN):'',
+        slopeJudgeTextOf(r.slopeJudge),
+        slopeJudgeReasonText(r.slopeJudge),
         upDesignMm===null||upDesignMm===undefined?'':fmtMm(upDesignMm),
         upReadInvertM===null||upReadInvertM===undefined?'':fmtReadingMm(upReadInvertM),
         upReadTopM===null||upReadTopM===undefined?'':fmtReadingMm(upReadTopM),
         upActualReadM===null||upActualReadM===undefined||upActualReadM===''?'':fmtReadingMm(upActualReadM),
         upActualElevMm===null||upActualElevMm===undefined?'':fmtMm(upActualElevMm),
         upDiffMm===null||upDiffMm===undefined?'':fmtMm(upDiffMm),
-        judgeTextOf(upDiffMm),
+        fmtSignedDiffMm(upDiffMm),
         downDesignMm===null||downDesignMm===undefined?'':fmtMm(downDesignMm),
         downReadInvertM===null||downReadInvertM===undefined?'':fmtReadingMm(downReadInvertM),
         downReadTopM===null||downReadTopM===undefined?'':fmtReadingMm(downReadTopM),
         downActualReadM===null||downActualReadM===undefined||downActualReadM===''?'':fmtReadingMm(downActualReadM),
         downActualElevMm===null||downActualElevMm===undefined?'':fmtMm(downActualElevMm),
         downDiffMm===null||downDiffMm===undefined?'':fmtMm(downDiffMm),
-        r.hasSplit ? '' : judgeTextOf(downDiffMm) // 判定は上流側のみ。下流側は段差分ずれるのが設計通りのため判定対象外
+        r.hasSplit ? '' : fmtSignedDiffMm(downDiffMm) // 参考値は上流側のみ表示。下流側は段差分ずれるのが設計通りのため対象外
       ]);
     });
     return { rows, boldRows };
@@ -3076,8 +3129,10 @@
     const results = computeAllPoints();
     state.points.forEach((p,i)=>{
       const r = results[i];
-      const judge = r.diffMm===null ? '' : (Math.abs(r.diffMm)<=Number(state.tolerance||0)?'OK':(judgeDiffMm(r.diffMm)>0?('切る'+Math.abs(Math.round(r.diffMm*10)/10)+'mm'):('盛る'+Math.abs(Math.round(r.diffMm*10)/10)+'mm')));
-      lines.push(p.label+'　累計'+(cums[i]!==undefined?Math.round(cums[i]*1000):'?')+'mm　設計高BM'+(r.designElevMm===null?'?':fmtMm(r.designElevMm))+'mm　目標読み'+(r.requiredReadingM===null?'?':fmtReadingMm(r.requiredReadingM))+'mm'+(judge?('　判定:'+judge):''));
+      // 目標との差は施工調整用の参考値(合否には使わない)。合否(合格/不合格)は実測勾配のみで判定する。
+      const refDiff = r.diffMm===null ? '' : fmtSignedDiffMm(r.diffMm);
+      const slopeText = r.slopeJudge ? ('　勾配判定:'+(r.slopeJudge.pass?'合格':'不合格')+'(限度1/'+r.slopeJudge.limitN+'・実測'+slopeActualDesc(r.slopeJudge)+')') : '';
+      lines.push(p.label+'　累計'+(cums[i]!==undefined?Math.round(cums[i]*1000):'?')+'mm　設計高BM'+(r.designElevMm===null?'?':fmtMm(r.designElevMm))+'mm　目標読み'+(r.requiredReadingM===null?'?':fmtReadingMm(r.requiredReadingM))+'mm'+(refDiff?('　目標との差:'+refDiff):'')+slopeText);
     });
     return lines.join('\n');
   }
@@ -3126,7 +3181,7 @@
   function ensureSewageSelected(){
     if(state.pipe.type !== 'sewage') switchPipeType('sewage');
   }
-  // v1.0.11: 未保存の作業用一時データだけ復元する。
+  // v1.0.12: 未保存の作業用一時データだけ復元する。
   // 「現場保存」済みなら一時データは消えているため、新しいファイルから開始する。
   (function initSite(){
     let restoredDraft = false;
