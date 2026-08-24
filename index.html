@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.13">
+<link rel="manifest" href="manifest.json?v=1.0.14">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.13">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.13">
-<link rel="icon" href="favicon.ico?v=1.0.13" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.14">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.14">
+<link rel="icon" href="favicon.ico?v=1.0.14" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.13" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.14" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.13</div>
+  <div class="t3">Version 1.0.14</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -383,7 +383,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.13<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.14<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -3585,41 +3585,28 @@
   function ensureSewageSelected(){
     if(state.pipe.type !== 'sewage') switchPipeType('sewage');
   }
-  // v1.0.12: 未保存の作業用一時データだけ復元する。
-  // 「現場保存」済みなら一時データは消えているため、新しいファイルから開始する。
+  // v1.0.14: 通常起動時は必ず空の「新しいファイル」から開始する（前回の未保存ドラフトは
+  // 画面へ自動復元しない）。現場名・作業日・BM・器械・勾配・計算表など、以前の入力内容は
+  // 一切引き継がない。作業日は defaultState() が todayStr() で端末の今日の日付に初期化する。
+  // 以前のバージョン（Ver.1.0.13以前を含む）の未保存ドラフトも、起動のたびに確実に削除する。
+  // ※ここで削除するのは端末内の作業用一時データ（localStorageのドラフト）のみ。
+  //   正式に「保存」したJSONファイルや、クラウド保存データ（Supabase側）には一切触れない。
+  // データを画面へ展開するのは「読込」またはクラウド現場一覧から選んだ場合のみ（applyLoadedFile／
+  // applyCloudSitePayload経由）。
   (function initSite(){
-    let restoredDraft = false;
     try{
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if(raw){
-        const loaded = JSON.parse(raw);
-        if(loaded && loaded.version===2 && loaded.lines){
-          restoredDraft = true;
-          site = loaded;
-          migrateSiteLineNames();
-          if(!site.currentLineId || !site.lines[site.currentLineId]){
-            site.currentLineId = Object.keys(site.lines)[0] || MAIN_LINE;
-          }
-          const data = site.lines[site.currentLineId];
-          if(data){
-            state = Object.assign(defaultState(), JSON.parse(JSON.stringify(data)));
-            migrateLoadedChecks(data);
-          }
-        }
-      }
+      localStorage.removeItem(DRAFT_KEY);
       localStorage.removeItem(SITE_KEY);
       localStorage.removeItem(AUTOSAVE_KEY);
     }catch(e){}
-    if(!site || !site.lines || !Object.keys(site.lines).length){
-      state = defaultState();
-      site = { version:2, siteName:'', currentLineId:MAIN_LINE, lines:{} };
-    }
+    state = defaultState();
+    site = { version:2, siteName:'', currentLineId:MAIN_LINE, lines:{} };
     site.lines[site.currentLineId] = state;
     syncFormFields();
     markSaved();
     renderAll();
     initializationComplete = true;
-    draftEnabled = restoredDraft;
+    draftEnabled = false; // ユーザーが入力を始めた時点で自動保存が有効になる（scheduleDraftSaveの既存動作）
   })();
 })();
 </script>
