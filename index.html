@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.14">
+<link rel="manifest" href="manifest.json?v=1.0.15">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.14">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.14">
-<link rel="icon" href="favicon.ico?v=1.0.14" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.15">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.15">
+<link rel="icon" href="favicon.ico?v=1.0.15" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.14" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.15" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.14</div>
+  <div class="t3">Version 1.0.15</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -383,7 +383,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.14<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.15<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -2714,7 +2714,22 @@
       site = loaded;
       migrateSiteLineNames();
       if(!site.currentLineId || !site.lines[site.currentLineId]) site.currentLineId = Object.keys(site.lines)[0] || MAIN_LINE;
+
+      // ===== [調査用ログ START] 原因確認後に削除 =====
+      const __dbg = {
+        payloadTopKeys: loaded ? Object.keys(loaded) : null,
+        currentLineId: site.currentLineId,
+        lineKeys: Object.keys(site.lines || {}),
+        hasCurrentLine: !!(site.lines && site.lines[site.currentLineId]),
+      };
+      // ===== [調査用ログ END] =====
+
       const data = site.lines[site.currentLineId] || defaultState();
+
+      // ===== [調査用ログ START] =====
+      __dbg.usedDefaultState = !__dbg.hasCurrentLine;
+      // ===== [調査用ログ END] =====
+
       state = Object.assign(defaultState(), JSON.parse(JSON.stringify(data)));
       migrateLoadedChecks(data);
       persistSite();
@@ -2725,6 +2740,14 @@
       currentCloudVersionNo = meta && typeof meta.version_no==='number' ? meta.version_no : null;
       currentFileBase = null;
       currentFileHandle = null;
+
+      // ===== [調査用ログ START] =====
+      __dbg.restoredProjectName = state.project.name;
+      __dbg.restoredStationsCount = (state.stations||[]).length;
+      __dbg.restoredStations = (state.stations||[]).map(s=>({label:s.label, ihMm:s.ihMm}));
+      console.log('[調査用][applyCloudSitePayload]', __dbg);
+      window.__cloudRestoreDebugInfo = __dbg; // 画面表示用に一時保持
+      // ===== [調査用ログ END] =====
     }catch(err){
       showModal('クラウドの現場データの読み込みに失敗しました。\n\nエラー内容: '+(err && err.message ? err.message : err), ()=>{});
     }
@@ -2744,7 +2767,20 @@
       applyCloudSitePayload(data.payload, { id:data.id, version_no:data.version_no });
       cloudBusy = false;
       renderCloudPanel();
-      showModal('クラウドから現場「'+(data.site_name||'')+'」を読み込みました。', ()=>{});
+
+      // ===== [調査用ログ START] 原因確認後に削除 =====
+      const __dbg = window.__cloudRestoreDebugInfo || {};
+      const __dbgText = '\n\n――調査用ログ――\n'
+        + 'payloadのキー: '+JSON.stringify(__dbg.payloadTopKeys)+'\n'
+        + 'currentLineId: '+__dbg.currentLineId+'\n'
+        + 'lines一覧のキー: '+JSON.stringify(__dbg.lineKeys)+'\n'
+        + '現在ラインが存在: '+__dbg.hasCurrentLine+'\n'
+        + '空状態にフォールバックした: '+__dbg.usedDefaultState+'\n'
+        + '復元後の現場名: "'+__dbg.restoredProjectName+'"\n'
+        + '復元後の器械件数: '+__dbg.restoredStationsCount+'\n'
+        + '復元後の器械内容: '+JSON.stringify(__dbg.restoredStations);
+      showModal('クラウドから現場「'+(data.site_name||'')+'」を読み込みました。'+__dbgText, ()=>{});
+      // ===== [調査用ログ END] =====
     }catch(err){
       console.warn('[cloud] 現場の読み込みに失敗', err);
       cloudBusy = false;
