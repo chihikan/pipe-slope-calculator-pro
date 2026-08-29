@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.16">
+<link rel="manifest" href="manifest.json?v=1.0.17">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.16">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.16">
-<link rel="icon" href="favicon.ico?v=1.0.16" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.17">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.17">
+<link rel="icon" href="favicon.ico?v=1.0.17" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.16" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.17" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.16</div>
+  <div class="t3">Version 1.0.17</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -179,9 +179,8 @@
   <div class="section active" id="tab-station">
 
     <div class="card" id="cloudCard">
-      <h2>☁️ 社内共有クラウド保存（テスト機能）</h2>
+      <h2>☁️ 社内共有クラウド</h2>
       <div id="cloudPanel">読み込み中…</div>
-      <div class="hint">現在は動作確認段階の機能です。うまく動かない場合は、下の「保存」「読込」ボタン（従来のファイル保存）をご利用ください。</div>
     </div>
 
     <div class="card">
@@ -383,7 +382,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.16<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.17<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -2515,6 +2514,10 @@
   let currentCloudSiteId = null;
   let currentCloudVersionNo = null;
   let lastInviteInputValue = ''; // 接続失敗時も入力し直さなくていいよう、直近の入力値を保持する
+  // 共有現場一覧の表示切替（現場完了機能）。'active'=作業中一覧（通常表示）、'completed'=完了済み一覧。
+  // 通常はactiveのみを表示し、completedはボタン操作で切り替えて確認する。
+  let cloudListView = 'active';
+  const CLOUD_COMPLETED_RETENTION_DAYS = 30; // 現場完了確定(completed_at)から自動削除までの保管日数
 
   // 「最終更新者」表示用の表示名。端末のlocalStorageに保存し、次回以降も使い回す。
   const CLOUD_DISPLAY_NAME_KEY = 'pipeSlopeCloudDisplayName';
@@ -2573,28 +2576,49 @@
       });
       return;
     }
+    const isCompletedView = (cloudListView === 'completed');
     let listHtml;
     if(!cloudSiteList.length){
-      listHtml = '<div class="empty">共有されている現場はまだありません。</div>';
+      listHtml = '<div class="empty">'+(isCompletedView ? '完了済みの現場はありません。' : '共有されている現場はまだありません。')+'</div>';
     } else {
       listHtml = cloudSiteList.map(s=>{
         const when = s.updated_at ? new Date(s.updated_at).toLocaleString('ja-JP') : '不明';
         const cur = (s.id===currentCloudSiteId) ? '　<span style="color:var(--blue);">【現在編集中】</span>' : '';
+        const nameLabel = s.site_name||'(無題の現場)';
+        let metaHtml = '<div class="meta">最終更新：'+escapeHtml(s.updated_by_label||'不明')+'　'+escapeHtml(when)+'</div>';
+        let stateBtnHtml;
+        if(isCompletedView){
+          const completedWhen = s.completed_at ? new Date(s.completed_at).toLocaleString('ja-JP') : '不明';
+          const daysLeft = s.completed_at
+            ? Math.max(0, CLOUD_COMPLETED_RETENTION_DAYS - Math.floor((Date.now() - new Date(s.completed_at).getTime())/86400000))
+            : null;
+          metaHtml += '<div class="meta">完了日時：'+escapeHtml(completedWhen)+(daysLeft!==null ? '　自動削除まであと'+daysLeft+'日' : '')+'</div>';
+          stateBtnHtml = '<button class="btn secondary" data-reopen-cloud-site="'+escapeHtml(s.id)+'" data-site-name="'+escapeHtml(nameLabel)+'" style="padding:6px 12px;">作業中に戻す</button>';
+        } else {
+          stateBtnHtml = '<button class="btn" data-complete-cloud-site="'+escapeHtml(s.id)+'" data-site-name="'+escapeHtml(nameLabel)+'" style="padding:6px 12px;">現場完了</button>';
+        }
         return '<div class="stationcard">'
-          + '<div class="top"><span>'+escapeHtml(s.site_name||'(無題の現場)')+cur+'</span>'
-          + '<button class="btn secondary" data-open-cloud-site="'+escapeHtml(s.id)+'" style="padding:4px 10px;">開く</button></div>'
-          + '<div class="meta">最終更新：'+escapeHtml(s.updated_by_label||'不明')+'　'+escapeHtml(when)+'</div>'
+          + '<div class="top"><span>'+escapeHtml(nameLabel)+cur+'</span></div>'
+          + metaHtml
+          + '<div class="row" style="margin-top:6px;flex-wrap:wrap;">'
+          + '<button class="btn secondary" data-open-cloud-site="'+escapeHtml(s.id)+'" style="padding:6px 12px;">開く</button>'
+          + stateBtnHtml
+          + '<button class="btn danger" data-delete-cloud-site="'+escapeHtml(s.id)+'" data-site-name="'+escapeHtml(nameLabel)+'" style="padding:6px 12px;">削除</button>'
+          + '</div>'
           + '</div>';
       }).join('');
     }
     const updateBtnHtml = currentCloudSiteId
       ? '<button class="btn" id="btnSaveCloudUpdate" style="margin-top:8px;">💾 変更を保存（この現場を更新）</button>'
       : '';
+    const listTitle = isCompletedView ? '完了済み現場一覧' : '共有現場一覧（作業中）';
+    const toggleViewLabel = isCompletedView ? '作業中の現場一覧に戻る' : '完了済み現場を見る';
     panel.innerHTML = errHtml
       + '<div class="hint">接続先の会社：<b>'+escapeHtml(cloudCompany.name||'')+'</b></div>'
       + '<label class="first">あなたの表示名（最終更新者として表示されます）</label>'
       + '<input type="text" id="inCloudDisplayName" placeholder="例：山田" value="'+escapeHtml(getCloudDisplayName())+'">'
-      + '<h3>共有現場一覧</h3>'
+      + '<div class="top" style="margin-top:14px;"><h3 style="margin:0;">'+listTitle+'</h3>'
+      + '<button class="btn secondary" id="btnToggleCloudView" style="padding:4px 10px;">'+toggleViewLabel+'</button></div>'
       + listHtml
       + '<div class="row" style="margin-top:8px;">'
       + '<button class="btn secondary" id="btnRefreshCloudSites">一覧を更新</button>'
@@ -2603,6 +2627,11 @@
       + updateBtnHtml;
     const nameInput = document.getElementById('inCloudDisplayName');
     if(nameInput) nameInput.addEventListener('change', e=>setCloudDisplayName(e.target.value));
+    const toggleViewBtn = document.getElementById('btnToggleCloudView');
+    if(toggleViewBtn) toggleViewBtn.addEventListener('click', ()=>{
+      cloudListView = isCompletedView ? 'active' : 'completed';
+      listCloudSites();
+    });
     const refreshBtn = document.getElementById('btnRefreshCloudSites');
     if(refreshBtn) refreshBtn.addEventListener('click', ()=>listCloudSites());
     const saveNewBtn = document.getElementById('btnSaveCloudNew');
@@ -2611,6 +2640,15 @@
     if(updateBtn) updateBtn.addEventListener('click', ()=>saveCloudSiteUpdate());
     panel.querySelectorAll('[data-open-cloud-site]').forEach(b=>{
       b.addEventListener('click', ()=>openCloudSite(b.getAttribute('data-open-cloud-site')));
+    });
+    panel.querySelectorAll('[data-delete-cloud-site]').forEach(b=>{
+      b.addEventListener('click', ()=>confirmDeleteCloudSite(b.getAttribute('data-delete-cloud-site'), b.getAttribute('data-site-name')));
+    });
+    panel.querySelectorAll('[data-complete-cloud-site]').forEach(b=>{
+      b.addEventListener('click', ()=>confirmCompleteCloudSite(b.getAttribute('data-complete-cloud-site'), b.getAttribute('data-site-name')));
+    });
+    panel.querySelectorAll('[data-reopen-cloud-site]').forEach(b=>{
+      b.addEventListener('click', ()=>confirmReopenCloudSite(b.getAttribute('data-reopen-cloud-site'), b.getAttribute('data-site-name')));
     });
   }
 
@@ -2684,16 +2722,19 @@
     }
   }
 
+  // cloudListView('active'/'completed')に応じて一覧を取得する。
+  // 作業中一覧・完了済み一覧はこのstatus列だけで切り分け、それぞれ別の一覧として表示する。
   async function listCloudSites(){
     if(!supabaseClient || !cloudCompany) return;
     renderCloudPanel({ busy:true });
     try{
       const { data, error } = await supabaseClient
         .from('sites')
-        .select('id, site_name, updated_by_label, updated_at, version_no')
+        .select('id, site_name, updated_by_label, updated_at, version_no, status, completed_at')
         .eq('is_deleted', false)
+        .eq('status', cloudListView)
         .or('id.not.is.null,id.eq.'+randomUuidLike()) // 常に真になる条件だが、URLを毎回変えて古い応答が返るのを防ぐ
-        .order('updated_at', { ascending:false });
+        .order(cloudListView==='completed' ? 'completed_at' : 'updated_at', { ascending:false });
       if(error) throw error;
       cloudSiteList = data || [];
       cloudBusy = false;
@@ -2834,6 +2875,117 @@
       console.error('[cloud] クラウド保存(更新)に失敗', err);
       cloudBusy = false;
       renderCloudPanel({ error: formatSupabaseError(err) });
+    }
+  }
+
+  // 共有現場一覧からの削除。実際の行を消す(DELETE)のではなく、既存のis_deleted列を
+  // trueにする論理削除にとどめる（listCloudSitesは元々is_deleted=falseだけを表示しているため、
+  // 一覧からは即座に消える）。company_id・招待コード・共有設定など他のテーブル/列には一切触れない。
+  // 削除は必ず対象の1件のid（このボタンが表示していたsite_name込みで確認済みのid）だけを条件にする。
+  function confirmDeleteCloudSite(id, siteName){
+    if(!id) return;
+    const label = siteName || '(無題の現場)';
+    showModal(
+      '『'+label+'』をクラウドから削除します。\nこの操作は元に戻せません。\n削除してよろしいですか？',
+      ()=>{ deleteCloudSite(id, label); },
+      { okLabel:'削除する', cancelLabel:'キャンセル', danger:true }
+    );
+  }
+
+  async function deleteCloudSite(id, label){
+    if(!supabaseClient || !cloudCompany || !id) return;
+    renderCloudPanel({ busy:true });
+    try{
+      const { data, error } = await supabaseClient
+        .from('sites')
+        .update({ is_deleted: true })
+        .eq('id', id)
+        .select('id')
+        .single();
+      if(error) throw error;
+      if(!data || data.id !== id) throw new Error('削除対象の現場を確認できませんでした');
+      // 削除した現場がいま開いている現場だった場合、以後の「変更を保存（更新）」が
+      // 削除済みの行を指さないよう、編集中IDを解除する（他の機能・現場データには影響しない）
+      if(currentCloudSiteId === id){
+        currentCloudSiteId = null;
+        currentCloudVersionNo = null;
+      }
+      cloudBusy = false;
+      await listCloudSites();
+      showModal('現場「'+label+'」をクラウドから削除しました。', ()=>{});
+    }catch(err){
+      console.error('[cloud] 現場の削除に失敗', err);
+      cloudBusy = false;
+      renderCloudPanel({ error:'現場の削除に失敗しました: '+(err && err.message ? err.message : err) });
+    }
+  }
+
+  // 現場完了：即座に削除はせず、status='completed'とcompleted_at(完了確定日時)を記録するだけ。
+  // 実際の自動削除はSupabase側（completed_atから30日後）で行う想定で、アプリ側では削除処理を一切行わない。
+  // 完了後30日間は開く・編集・「作業中に戻す」が可能（is_deletedはfalseのまま変更しない）。
+  function confirmCompleteCloudSite(id, siteName){
+    if(!id) return;
+    const label = siteName || '(無題の現場)';
+    showModal(
+      '『'+label+'』を完了にしますか？\n完了後'+CLOUD_COMPLETED_RETENTION_DAYS+'日間クラウドに保管され、\nその後自動削除されます。',
+      ()=>{ completeCloudSite(id, label); },
+      { okLabel:'現場完了', cancelLabel:'キャンセル', danger:true }
+    );
+  }
+
+  async function completeCloudSite(id, label){
+    if(!supabaseClient || !cloudCompany || !id) return;
+    renderCloudPanel({ busy:true });
+    try{
+      const { data, error } = await supabaseClient
+        .from('sites')
+        .update({ status:'completed', completed_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('id')
+        .single();
+      if(error) throw error;
+      if(!data || data.id !== id) throw new Error('完了対象の現場を確認できませんでした');
+      cloudBusy = false;
+      await listCloudSites();
+      showModal('現場「'+label+'」を完了にしました。'+CLOUD_COMPLETED_RETENTION_DAYS+'日間はクラウドに保管され、その後自動的に削除されます。', ()=>{});
+    }catch(err){
+      console.error('[cloud] 現場完了処理に失敗', err);
+      cloudBusy = false;
+      renderCloudPanel({ error:'現場完了処理に失敗しました: '+(err && err.message ? err.message : err) });
+    }
+  }
+
+  // 作業中に戻す：completed_atをnullに戻すことで、Supabase側の自動削除（completed_at基準）の
+  // 対象から外れる＝自動削除の予定が解除される。status='active'に戻るため通常の一覧にも再度表示される。
+  function confirmReopenCloudSite(id, siteName){
+    if(!id) return;
+    const label = siteName || '(無題の現場)';
+    showModal(
+      '『'+label+'』を作業中に戻しますか？\n自動削除の予定は解除されます。',
+      ()=>{ reopenCloudSite(id, label); },
+      { okLabel:'作業中に戻す', cancelLabel:'キャンセル', danger:false }
+    );
+  }
+
+  async function reopenCloudSite(id, label){
+    if(!supabaseClient || !cloudCompany || !id) return;
+    renderCloudPanel({ busy:true });
+    try{
+      const { data, error } = await supabaseClient
+        .from('sites')
+        .update({ status:'active', completed_at: null })
+        .eq('id', id)
+        .select('id')
+        .single();
+      if(error) throw error;
+      if(!data || data.id !== id) throw new Error('作業中に戻す対象の現場を確認できませんでした');
+      cloudBusy = false;
+      await listCloudSites();
+      showModal('現場「'+label+'」を作業中に戻しました。自動削除の予定は解除されました。', ()=>{});
+    }catch(err){
+      console.error('[cloud] 作業中に戻す処理に失敗', err);
+      cloudBusy = false;
+      renderCloudPanel({ error:'作業中に戻す処理に失敗しました: '+(err && err.message ? err.message : err) });
     }
   }
 
