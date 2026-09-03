@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.20">
+<link rel="manifest" href="manifest.json?v=1.0.21">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.20">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.20">
-<link rel="icon" href="favicon.ico?v=1.0.20" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.21">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.21">
+<link rel="icon" href="favicon.ico?v=1.0.21" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.20" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.21" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.20</div>
+  <div class="t3">Version 1.0.21</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -387,7 +387,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.20<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.21<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -832,7 +832,7 @@
   }
   function siteIsCompletelyBlank(s){
     if(!s || !s.lines) return true;
-    if(s.cloudSiteId) return false; // クラウドに保存済みの現場は、内容の多寡に関わらず空扱いしない(Ver1.0.20)
+    if(s.cloudSiteId) return false; // クラウドに保存済みの現場は、内容の多寡に関わらず空扱いしない(Ver1.0.21)
     return Object.keys(s.lines).every(id=>isCompletelyBlankJob(s.lines[id]));
   }
   // 一覧から「完全に空」の作業中現場だけを安全に取り除く(起動時に1回だけ実行)。
@@ -1032,6 +1032,7 @@
       syncFormFields();
       renderAll();
       renderWorkingSitesPanel();
+      renderCloudPanel(); // クラウド欄の「未保存/保存済み」表示・保存ボタンの状態を今のcurrentCloudSiteIdに合わせて更新する
       showModal('スマホ内の作業中現場「'+(entry.name||'名称未設定')+'」を開きました。', ()=>{});
     }catch(err){
       showModal('作業中現場の読み込みに失敗しました。\n\nエラー内容: '+(err && err.message ? err.message : err), ()=>{});
@@ -2251,7 +2252,7 @@
   }
 
   // ---------- 現場情報 ----------
-  // 現場名・工事名の正式な入力場所はこの「器械」画面(inProjectName)のみとする(Ver1.0.20)。
+  // 現場名・工事名の正式な入力場所はこの「器械」画面(inProjectName)のみとする(Ver1.0.21)。
   // 保存操作(スマホ内保存・クラウド保存)で別途名前を入力させるモーダルは持たない。
   document.getElementById('inProjectName').addEventListener('input', e=>{ state.project.name=e.target.value; renderHeader(); });
   document.getElementById('inProjectDate').addEventListener('input', e=>{ state.project.date=e.target.value; renderHeader(); });
@@ -2678,6 +2679,7 @@
         undoStack=[]; redoStack=[];
         syncFormFields();
         renderAll();
+        renderCloudPanel(); // クラウド欄の「未保存/保存済み」表示・保存ボタンの状態を今のcurrentCloudSiteIdに合わせて更新する
       }catch(err){
         showModal('ファイルの読み込みに失敗しました。保存(JSON)ファイルを選択してください。\n\nエラー内容: '+(err && err.message ? err.message : err), ()=>{});
       }
@@ -2726,7 +2728,7 @@
   let cloudBusy = false;
   // 現在編集中のsiteが「クラウドのどの現場と紐付いているか」。site.cloudSiteId/cloudVersionNoに
   // 保存し、スマホ内作業中現場・JSONファイルと一緒に永続化することで、アプリを再起動しても
-  // 「保存で新規作成されるか、更新されるか」を正しく判定できるようにする(Ver1.0.20)。
+  // 「保存で新規作成されるか、更新されるか」を正しく判定できるようにする(Ver1.0.21)。
   let currentCloudSiteId = null;
   let currentCloudVersionNo = null;
   // site丸ごとの切替(新規作成／ファイル読込／スマホ内作業中現場を開く)のたびに必ず呼ぶ。
@@ -2831,7 +2833,7 @@
           + '</div>';
       }).join('');
     }
-    // クラウド保存操作はユーザーから見て1個のボタンにまとめる(Ver1.0.20)。
+    // クラウド保存操作はユーザーから見て1個のボタンにまとめる(Ver1.0.21)。
     // currentCloudSiteIdの有無で「新規保存」「更新」を自動判定し、ユーザーには選ばせない。
     const isLinked = !!currentCloudSiteId;
     const saveBtnLabel = isLinked ? '☁ クラウドへ保存・共有（この現場を更新）' : '☁ クラウドへ保存・共有';
@@ -2999,6 +3001,7 @@
       site.cloudVersionNo = currentCloudVersionNo;
       currentFileBase = null;
       currentFileHandle = null;
+      renderCloudPanel(); // クラウド欄の表示・保存ボタンの状態を今のcurrentCloudSiteIdに合わせて更新する(呼び出し元が別途呼んでも二重描画になるだけで無害)
     }catch(err){
       showModal('クラウドの現場データの読み込みに失敗しました。\n\nエラー内容: '+(err && err.message ? err.message : err), ()=>{});
     }
@@ -3290,6 +3293,7 @@
       redoStack = [];
       syncCloudLinkFromSite(); // 新規のsiteにはクラウド紐付けが無い＝currentCloudSiteIdをnullに戻す
       detachWorkingSite(); // 今の作業中現場からは切り離すだけで、一覧からは削除しない
+      renderCloudPanel(); // クラウド欄の「未保存/保存済み」表示・保存ボタンの状態を今のcurrentCloudSiteIdに合わせて更新する
       markSaved(); // 既定状態を基準にし、以後の入力で＊未保存表示になる
       // 入力途中のまま残る一時フォーム（器械を追加・設計GL確認を追加）は state に属さないDOM値のため、
       // 明示的に閉じて空欄に戻す（開いたままだと前回入力した数字が画面に残ってしまう不具合の原因）
@@ -3997,7 +4001,7 @@
   // データを画面へ展開するのは「読込」またはクラウド現場一覧から選んだ場合のみ（applyLoadedFile／
   // applyCloudSitePayload経由）。
   (function initSite(){
-    // v1.0.20: 起動時にDRAFT_KEYを削除する前に、旧形式の自動下書きが残っていれば
+    // v1.0.21: 起動時にDRAFT_KEYを削除する前に、旧形式の自動下書きが残っていれば
     // 新しい「スマホ内の作業中現場」一覧へ1件だけ安全に移行する（既存データを消す処理ではない）。
     migrateLegacyDraftIfNeeded();
     try{
