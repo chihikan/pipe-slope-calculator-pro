@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.19">
+<link rel="manifest" href="manifest.json?v=1.0.20">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.19">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.19">
-<link rel="icon" href="favicon.ico?v=1.0.19" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.20">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.20">
+<link rel="icon" href="favicon.ico?v=1.0.20" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.19" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.20" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.19</div>
+  <div class="t3">Version 1.0.20</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -387,7 +387,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.19<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.20<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -832,6 +832,7 @@
   }
   function siteIsCompletelyBlank(s){
     if(!s || !s.lines) return true;
+    if(s.cloudSiteId) return false; // クラウドに保存済みの現場は、内容の多寡に関わらず空扱いしない(Ver1.0.20)
     return Object.keys(s.lines).every(id=>isCompletelyBlankJob(s.lines[id]));
   }
   // 一覧から「完全に空」の作業中現場だけを安全に取り除く(起動時に1回だけ実行)。
@@ -907,6 +908,9 @@
     draftSaveTimer = setTimeout(writeDraftNow, 3000);
   }
   // 「新規」用：今の作業中現場からは切り離すが、一覧からは削除しない(他の現場に影響させないため)。
+  // クラウドの紐付け(currentCloudSiteId等)も必ずここでリセットする。呼び出し元がsiteを
+  // 新しいオブジェクトに差し替えているかどうかに関わらず、前の現場のクラウドIDを
+  // 絶対に引きずらないようにするための安全策(誤上書き防止)。
   function detachWorkingSite(){
     if(draftSaveTimer){ clearTimeout(draftSaveTimer); draftSaveTimer=null; }
     draftEnabled = false;
@@ -916,6 +920,11 @@
       localStorage.removeItem(AUTOSAVE_KEY);
     }catch(e){}
     currentWorkingSiteId = null;
+    currentCloudSiteId = null;
+    currentCloudVersionNo = null;
+    // siteオブジェクト自体が使い回された場合に備え、そこに残るクラウド紐付けも直接消しておく
+    // (呼び出し元がsiteを新しいオブジェクトに差し替えていない場合でも安全なように)。
+    if(site){ site.cloudSiteId = null; site.cloudVersionNo = null; }
     renderWorkingSitesPanel();
   }
   // 「🏠 現場保存」(全ラインをファイル書き出し)の後に呼ばれる、従来からの後始末処理。
@@ -1017,6 +1026,8 @@
       currentFileBase = null;
       currentFileHandle = null;
       undoStack = []; redoStack = [];
+      // この現場自身が持つクラウド紐付けを復元する(無ければnull＝前の現場のIDを引きずらない)。
+      syncCloudLinkFromSite();
       persistSite();
       syncFormFields();
       renderAll();
@@ -2239,40 +2250,9 @@
     cancelBtn.addEventListener('click', cancelHandler);
   }
 
-  // ファイル名（測定ライン名）入力用モーダル。showModalと同じモーダルUIに入力欄を足して使う。
-  function showFileNameModal(message, defaultValue, onOk){
-    const txtEl = document.getElementById('modalText');
-    txtEl.textContent = message;
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.id = 'modalNameInput';
-    input.value = defaultValue || '';
-    input.style.cssText = 'width:100%;margin-top:10px;padding:10px;font-size:16px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box;';
-    txtEl.appendChild(document.createElement('br'));
-    txtEl.appendChild(input);
-    document.getElementById('modalBg').classList.add('show');
-    const okBtn = document.getElementById('modalOk');
-    const cancelBtn = document.getElementById('modalCancel');
-    okBtn.textContent = '保存';
-    cancelBtn.textContent = 'キャンセル';
-    okBtn.classList.remove('danger'); okBtn.classList.add('secondary');
-    function cleanup(){
-      document.getElementById('modalBg').classList.remove('show');
-      okBtn.removeEventListener('click', okHandler);
-      cancelBtn.removeEventListener('click', cancelHandler);
-    }
-    function okHandler(){
-      const v = input.value.trim();
-      cleanup();
-      if(v) onOk(v);
-    }
-    function cancelHandler(){ cleanup(); }
-    okBtn.addEventListener('click', okHandler);
-    cancelBtn.addEventListener('click', cancelHandler);
-    setTimeout(()=>{ try{ input.focus(); input.select(); }catch(e){} }, 50);
-  }
-
   // ---------- 現場情報 ----------
+  // 現場名・工事名の正式な入力場所はこの「器械」画面(inProjectName)のみとする(Ver1.0.20)。
+  // 保存操作(スマホ内保存・クラウド保存)で別途名前を入力させるモーダルは持たない。
   document.getElementById('inProjectName').addEventListener('input', e=>{ state.project.name=e.target.value; renderHeader(); });
   document.getElementById('inProjectDate').addEventListener('input', e=>{ state.project.date=e.target.value; renderHeader(); });
   document.getElementById('inProjectMemo').addEventListener('input', e=>{ state.project.memo=e.target.value; });
@@ -2691,6 +2671,9 @@
         // ファイルから読み込んだ内容は、それまで開いていた「スマホ内作業中現場」とは別物として扱う。
         // ここで切り離しておかないと、次の自動保存で無関係な現場を上書きしてしまう。
         currentWorkingSiteId = null;
+        // クラウド紐付けも、読み込んだファイル自身が持つcloudSiteId(無ければnull)に合わせる。
+        // 前に開いていた無関係な現場のクラウドIDを引きずらないようにする。
+        syncCloudLinkFromSite();
         persistSite();
         undoStack=[]; redoStack=[];
         syncFormFields();
@@ -2741,8 +2724,18 @@
   let cloudCompany = null; // {id, name}
   let cloudSiteList = [];
   let cloudBusy = false;
+  // 現在編集中のsiteが「クラウドのどの現場と紐付いているか」。site.cloudSiteId/cloudVersionNoに
+  // 保存し、スマホ内作業中現場・JSONファイルと一緒に永続化することで、アプリを再起動しても
+  // 「保存で新規作成されるか、更新されるか」を正しく判定できるようにする(Ver1.0.20)。
   let currentCloudSiteId = null;
   let currentCloudVersionNo = null;
+  // site丸ごとの切替(新規作成／ファイル読込／スマホ内作業中現場を開く)のたびに必ず呼ぶ。
+  // siteにクラウド紐付けが無ければnullにする＝前に開いていた無関係な現場のクラウドIDが
+  // 残ったまま別の現場を誤って上書きする事故を防ぐ(必須の安全策)。
+  function syncCloudLinkFromSite(){
+    currentCloudSiteId = (site && site.cloudSiteId) || null;
+    currentCloudVersionNo = (site && typeof site.cloudVersionNo==='number') ? site.cloudVersionNo : null;
+  }
   let lastInviteInputValue = ''; // 接続失敗時も入力し直さなくていいよう、直近の入力値を保持する
   // 共有現場一覧の表示切替（現場完了機能）。'active'=作業中一覧（通常表示）、'completed'=完了済み一覧。
   // 通常はactiveのみを表示し、completedはボタン操作で切り替えて確認する。
@@ -2814,7 +2807,7 @@
       listHtml = cloudSiteList.map(s=>{
         const when = s.updated_at ? new Date(s.updated_at).toLocaleString('ja-JP') : '不明';
         const cur = (s.id===currentCloudSiteId) ? '　<span style="color:var(--blue);">【現在編集中】</span>' : '';
-        const nameLabel = s.site_name||'(無題の現場)';
+        const nameLabel = s.site_name||'名称未設定';
         let metaHtml = '<div class="meta">最終更新：'+escapeHtml(s.updated_by_label||'不明')+'　'+escapeHtml(when)+'</div>';
         let stateBtnHtml;
         if(isCompletedView){
@@ -2838,23 +2831,25 @@
           + '</div>';
       }).join('');
     }
-    const updateBtnHtml = currentCloudSiteId
-      ? '<button class="btn" id="btnSaveCloudUpdate" style="margin-top:8px;">💾 変更を保存（この現場を更新）</button>'
-      : '';
+    // クラウド保存操作はユーザーから見て1個のボタンにまとめる(Ver1.0.20)。
+    // currentCloudSiteIdの有無で「新規保存」「更新」を自動判定し、ユーザーには選ばせない。
+    const isLinked = !!currentCloudSiteId;
+    const saveBtnLabel = isLinked ? '☁ クラウドへ保存・共有（この現場を更新）' : '☁ クラウドへ保存・共有';
+    const saveStatusHtml = isLinked
+      ? '<div class="hint">この現場は共有現場一覧に保存済みです。保存すると内容が更新されます。</div>'
+      : '<div class="hint">この現場はまだクラウドに保存されていません。保存すると新しい共有現場として追加されます。</div>';
     const listTitle = isCompletedView ? '完了済み現場一覧' : '共有現場一覧（作業中）';
     const toggleViewLabel = isCompletedView ? '作業中の現場一覧に戻る' : '完了済み現場を見る';
     panel.innerHTML = errHtml
       + '<div class="hint">接続先の会社：<b>'+escapeHtml(cloudCompany.name||'')+'</b></div>'
       + '<label class="first">あなたの表示名（最終更新者として表示されます）</label>'
       + '<input type="text" id="inCloudDisplayName" placeholder="例：山田" value="'+escapeHtml(getCloudDisplayName())+'">'
+      + saveStatusHtml
+      + '<button class="btn" id="btnSaveCloud" style="margin-top:8px;">'+saveBtnLabel+'</button>'
       + '<div class="top" style="margin-top:14px;"><h3 style="margin:0;">'+listTitle+'</h3>'
       + '<button class="btn secondary" id="btnToggleCloudView" style="padding:4px 10px;">'+toggleViewLabel+'</button></div>'
       + listHtml
-      + '<div class="row" style="margin-top:8px;">'
-      + '<button class="btn secondary" id="btnRefreshCloudSites">一覧を更新</button>'
-      + '<button class="btn" id="btnSaveCloudNew">☁️ クラウドへ保存（新規）</button>'
-      + '</div>'
-      + updateBtnHtml;
+      + '<button class="btn ghost" id="btnRefreshCloudSites" style="margin-top:8px;">🔄 一覧を手動で更新（通信エラー時など）</button>';
     const nameInput = document.getElementById('inCloudDisplayName');
     if(nameInput) nameInput.addEventListener('change', e=>setCloudDisplayName(e.target.value));
     const toggleViewBtn = document.getElementById('btnToggleCloudView');
@@ -2864,10 +2859,8 @@
     });
     const refreshBtn = document.getElementById('btnRefreshCloudSites');
     if(refreshBtn) refreshBtn.addEventListener('click', ()=>listCloudSites());
-    const saveNewBtn = document.getElementById('btnSaveCloudNew');
-    if(saveNewBtn) saveNewBtn.addEventListener('click', ()=>saveCloudSiteAsNew());
-    const updateBtn = document.getElementById('btnSaveCloudUpdate');
-    if(updateBtn) updateBtn.addEventListener('click', ()=>saveCloudSiteUpdate());
+    const saveBtn = document.getElementById('btnSaveCloud');
+    if(saveBtn) saveBtn.addEventListener('click', ()=>{ currentCloudSiteId ? saveCloudSiteUpdate() : saveCloudSiteAsNew(); });
     panel.querySelectorAll('[data-open-cloud-site]').forEach(b=>{
       b.addEventListener('click', ()=>openCloudSite(b.getAttribute('data-open-cloud-site')));
     });
@@ -2995,8 +2988,15 @@
       undoStack=[]; redoStack=[];
       syncFormFields();
       renderAll();
+      // metaは今まさに開いた行そのもの(DBから取得した最新id/version_no)なので、payload内に
+      // 埋め込まれたcloudSiteIdより常にこちらを優先する(payload側が古い/無い場合の保険にもなる)。
       currentCloudSiteId = meta && meta.id ? meta.id : null;
       currentCloudVersionNo = meta && typeof meta.version_no==='number' ? meta.version_no : null;
+      // このクラウド紐付けをsite側にも書き戻し、次のローカル自動保存(スマホ内作業中現場)にも
+      // 記憶させる。これでアプリを再起動してこの現場をローカル一覧から開き直しても、
+      // 保存ボタンが正しく「更新」を選ぶようになる。
+      site.cloudSiteId = currentCloudSiteId;
+      site.cloudVersionNo = currentCloudVersionNo;
       currentFileBase = null;
       currentFileHandle = null;
     }catch(err){
@@ -3035,7 +3035,7 @@
       snapshotCurrentLine();
       const uid = await getCloudUserId();
       const label = getCloudDisplayName() || '(表示名未設定)';
-      const siteName = site.siteName || state.project.name || '無題の現場';
+      const siteName = site.siteName || state.project.name || '名称未設定';
       const payload = JSON.parse(JSON.stringify(site));
       const { data, error } = await supabaseClient
         .from('sites')
@@ -3054,6 +3054,12 @@
       if(error) throw error;
       currentCloudSiteId = data.id;
       currentCloudVersionNo = data.version_no;
+      // クラウド紐付けをsite側にも書き戻し、スマホ内作業中現場と一緒に永続化する。
+      // これでアプリを再起動してこの現場を開き直しても、保存ボタンが正しく「更新」を選ぶ。
+      site.cloudSiteId = currentCloudSiteId;
+      site.cloudVersionNo = currentCloudVersionNo;
+      draftEnabled = true; // 未編集のまま保存した場合でも、この紐付けだけは確実にローカルへ残す
+      writeDraftNow();
       cloudBusy = false;
       await listCloudSites();
       showModal('クラウドに新しい現場として保存しました。', ()=>{});
@@ -3073,7 +3079,7 @@
       snapshotCurrentLine();
       const uid = await getCloudUserId();
       const label = getCloudDisplayName() || '(表示名未設定)';
-      const siteName = site.siteName || state.project.name || '無題の現場';
+      const siteName = site.siteName || state.project.name || '名称未設定';
       const payload = JSON.parse(JSON.stringify(site));
       const { data, error } = await supabaseClient
         .from('sites')
@@ -3101,6 +3107,11 @@
         throw error;
       }
       currentCloudVersionNo = data.version_no;
+      // 更新後の最新version_noをsite側にも書き戻し、ローカルへ永続化する(次回起動後の紐付け維持)。
+      site.cloudSiteId = currentCloudSiteId;
+      site.cloudVersionNo = currentCloudVersionNo;
+      draftEnabled = true;
+      writeDraftNow();
       cloudBusy = false;
       await listCloudSites();
       showModal('クラウドの現場データを更新しました。', ()=>{});
@@ -3117,7 +3128,7 @@
   // 削除は必ず対象の1件のid（このボタンが表示していたsite_name込みで確認済みのid）だけを条件にする。
   function confirmDeleteCloudSite(id, siteName){
     if(!id) return;
-    const label = siteName || '(無題の現場)';
+    const label = siteName || '名称未設定';
     showModal(
       '『'+label+'』をクラウドから削除します。\nこの操作は元に戻せません。\n削除してよろしいですか？',
       ()=>{ deleteCloudSite(id, label); },
@@ -3137,11 +3148,17 @@
         .single();
       if(error) throw error;
       if(!data || data.id !== id) throw new Error('削除対象の現場を確認できませんでした');
-      // 削除した現場がいま開いている現場だった場合、以後の「変更を保存（更新）」が
-      // 削除済みの行を指さないよう、編集中IDを解除する（他の機能・現場データには影響しない）
+      // 削除した現場がいま開いている現場だった場合、以後の「クラウドへ保存・共有」が
+      // 削除済みの行を指さないよう、編集中IDを解除する（他の機能・現場データには影響しない）。
+      // site側の紐付けも消してローカルへ書き戻すことで、アプリ再起動後もこの現場が
+      // 削除済みのクラウド行を指し続けない（次に保存すれば新規作成になる）。
       if(currentCloudSiteId === id){
         currentCloudSiteId = null;
         currentCloudVersionNo = null;
+        site.cloudSiteId = null;
+        site.cloudVersionNo = null;
+        draftEnabled = true;
+        writeDraftNow();
       }
       cloudBusy = false;
       await listCloudSites();
@@ -3158,7 +3175,7 @@
   // 完了後30日間は開く・編集・「作業中に戻す」が可能（is_deletedはfalseのまま変更しない）。
   function confirmCompleteCloudSite(id, siteName){
     if(!id) return;
-    const label = siteName || '(無題の現場)';
+    const label = siteName || '名称未設定';
     showModal(
       '『'+label+'』を完了にしますか？\n完了後'+CLOUD_COMPLETED_RETENTION_DAYS+'日間クラウドに保管され、\nその後自動削除されます。',
       ()=>{ completeCloudSite(id, label); },
@@ -3192,7 +3209,7 @@
   // 対象から外れる＝自動削除の予定が解除される。status='active'に戻るため通常の一覧にも再度表示される。
   function confirmReopenCloudSite(id, siteName){
     if(!id) return;
-    const label = siteName || '(無題の現場)';
+    const label = siteName || '名称未設定';
     showModal(
       '『'+label+'』を作業中に戻しますか？\n自動削除の予定は解除されます。',
       ()=>{ reopenCloudSite(id, label); },
@@ -3271,6 +3288,7 @@
       currentFileHandle = null;
       undoStack = [];
       redoStack = [];
+      syncCloudLinkFromSite(); // 新規のsiteにはクラウド紐付けが無い＝currentCloudSiteIdをnullに戻す
       detachWorkingSite(); // 今の作業中現場からは切り離すだけで、一覧からは削除しない
       markSaved(); // 既定状態を基準にし、以後の入力で＊未保存表示になる
       // 入力途中のまま残る一時フォーム（器械を追加・設計GL確認を追加）は state に属さないDOM値のため、
@@ -3979,7 +3997,7 @@
   // データを画面へ展開するのは「読込」またはクラウド現場一覧から選んだ場合のみ（applyLoadedFile／
   // applyCloudSitePayload経由）。
   (function initSite(){
-    // v1.0.19: 起動時にDRAFT_KEYを削除する前に、旧形式の自動下書きが残っていれば
+    // v1.0.20: 起動時にDRAFT_KEYを削除する前に、旧形式の自動下書きが残っていれば
     // 新しい「スマホ内の作業中現場」一覧へ1件だけ安全に移行する（既存データを消す処理ではない）。
     migrateLegacyDraftIfNeeded();
     try{
