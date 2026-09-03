@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.18">
+<link rel="manifest" href="manifest.json?v=1.0.19">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.18">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.18">
-<link rel="icon" href="favicon.ico?v=1.0.18" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.19">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.19">
+<link rel="icon" href="favicon.ico?v=1.0.19" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.18" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.19" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.18</div>
+  <div class="t3">Version 1.0.19</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -387,7 +387,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.18<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.19<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -805,6 +805,45 @@
     if(!s || !s.lines) return false;
     return Object.keys(s.lines).some(k=>hasMeaningfulData(s.lines[k]));
   }
+  // 「完全に空(=実質的な入力が何も無い、defaultJobData()相当のまま)」かどうかの判定。
+  // hasMeaningfulData()より対象範囲を広く取り(現場名・BM・許容差・概算チェック・メモ・
+  // 設計GL照合の個別項目・勾配設定の変更も含める)、少しでも入力があれば false(=空でない)と
+  // 判定することで、「新規作成しただけの空の作業中現場」を安全に検出しつつ、既存の入力済み
+  // データを誤って空扱いしない(＝誤削除しない)ようにする。
+  function isDefaultSlope(sl){
+    if(!sl) return true;
+    return sl.direction==='down' && sl.mode==='100' && Number(sl.customN)===80;
+  }
+  function isCompletelyBlankJob(j){
+    if(!j) return true;
+    if(((j.project && (j.project.name || j.project.memo)) || '').toString().trim()) return false;
+    if(j.bmLabel && j.bmLabel.trim() && j.bmLabel!=='BM±0') return false;
+    if(j.stations && j.stations.length) return false;
+    if(j.checks && j.checks.length) return false;
+    if(j.points && j.points.length) return false;
+    if(j.tolerance!==undefined && j.tolerance!==null && j.tolerance!=='' && Number(j.tolerance)!==5) return false;
+    const pc = j.precheck;
+    if(pc && (hasVal(pc.totalLengthM) || hasVal(pc.masuCount) || hasVal(pc.targetMm))) return false;
+    const st = j.start;
+    if(st && (hasVal(st.readingM) || hasVal(st.directMm) || hasVal(st.glDepthMm) || hasVal(st.glCheckId) || hasVal(st.actualReadingM) || hasVal(st.stationId))) return false;
+    if(!isDefaultSlope(j.slope)) return false;
+    if(j.jobs){ for(const k in j.jobs){ if(!isCompletelyBlankJob(j.jobs[k])) return false; } }
+    return true;
+  }
+  function siteIsCompletelyBlank(s){
+    if(!s || !s.lines) return true;
+    return Object.keys(s.lines).every(id=>isCompletelyBlankJob(s.lines[id]));
+  }
+  // 一覧から「完全に空」の作業中現場だけを安全に取り除く(起動時に1回だけ実行)。
+  // 今開いている現場(currentWorkingSiteId)は、たとえ空に見えても対象から除外する。
+  function pruneBlankWorkingSites(){
+    try{
+      const store = loadWorkingSitesStore();
+      const before = store.sites.length;
+      store.sites = store.sites.filter(entry=> entry.id===currentWorkingSiteId || !siteIsCompletelyBlank(entry.site));
+      if(store.sites.length!==before) saveWorkingSitesStore(store);
+    }catch(e){}
+  }
   // 旧バージョンの自動下書き(pipeSlopeWorkingDraft_v106、1件だけ保持する形式)が残っている場合、
   // 新しい「スマホ内の作業中現場」一覧へ安全に1件だけ移行する。
   // ・新形式ストア(WORKING_SITES_KEY)が既に存在する端末では何もしない(重複移行防止)。
@@ -825,7 +864,7 @@
         migratedSite = { version:2, siteName:(oldData.project&&oldData.project.name)||'', currentLineId:MAIN_LINE, lines:{} };
         migratedSite.lines[MAIN_LINE] = oldData;
       }
-      if(!siteHasMeaningfulData(migratedSite)) return; // 実質空なら移行不要
+      if(siteIsCompletelyBlank(migratedSite)) return; // 実質空なら移行不要
       const name = (migratedSite.siteName||'').trim() || '名称未設定';
       const store = loadWorkingSitesStore();
       store.sites.push({ id: nextWorkingSiteId(), name, savedAt: new Date().toISOString(), site: migratedSite });
@@ -840,6 +879,11 @@
     try{
       site.lines[site.currentLineId] = state;
       site.siteName = state.project.name || site.siteName || '';
+      // まだどの作業中現場にも紐付いていない場合(＝これから新規作成される可能性がある場合)、
+      // 実質的な入力が何も無い(完全に空の初期状態のまま)なら、ここでは何も保存・登録しない。
+      // アプリを開いただけ／「新規」を押しただけで空の「名称未設定」が増えるのを防ぐ。
+      // 既に紐付いている現場(currentWorkingSiteId有り)は、一時的に空欄へ戻っても保存を続ける。
+      if(!currentWorkingSiteId && siteIsCompletelyBlank(site)) return;
       localStorage.setItem(DRAFT_KEY, JSON.stringify(site)); // 旧形式キーも従来通り併走で保持(後方互換)
       const store = loadWorkingSitesStore();
       const entry = {
@@ -3935,7 +3979,7 @@
   // データを画面へ展開するのは「読込」またはクラウド現場一覧から選んだ場合のみ（applyLoadedFile／
   // applyCloudSitePayload経由）。
   (function initSite(){
-    // v1.0.18: 起動時にDRAFT_KEYを削除する前に、旧形式の自動下書きが残っていれば
+    // v1.0.19: 起動時にDRAFT_KEYを削除する前に、旧形式の自動下書きが残っていれば
     // 新しい「スマホ内の作業中現場」一覧へ1件だけ安全に移行する（既存データを消す処理ではない）。
     migrateLegacyDraftIfNeeded();
     try{
@@ -3947,6 +3991,7 @@
     site = { version:2, siteName:'', currentLineId:MAIN_LINE, lines:{} };
     site.lines[site.currentLineId] = state;
     currentWorkingSiteId = null; // 起動直後はまだどの作業中現場にも紐付かない（一覧から選ぶか、入力開始で新規作成）
+    pruneBlankWorkingSites(); // 過去バージョンの不具合等で残った「完全に空」の作業中現場を安全な範囲で除去する
     syncFormFields();
     markSaved();
     renderAll();
