@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.17">
+<link rel="manifest" href="manifest.json?v=1.0.18">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.17">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.17">
-<link rel="icon" href="favicon.ico?v=1.0.17" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.18">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.18">
+<link rel="icon" href="favicon.ico?v=1.0.18" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.17" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.18" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.17</div>
+  <div class="t3">Version 1.0.18</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -177,6 +177,11 @@
 
   <!-- ============ TAB 1: 基準点・器械 ============ -->
   <div class="section active" id="tab-station">
+
+    <div class="card" id="workingSitesCard">
+      <h2>📱 スマホ内の作業中現場</h2>
+      <div id="workingSitesPanel">読み込み中…</div>
+    </div>
 
     <div class="card" id="cloudCard">
       <h2>☁️ 社内共有クラウド</h2>
@@ -382,7 +387,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.17<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.18<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -762,13 +767,92 @@
   let draftSaveTimer = null;
   let draftEnabled = false;
   let initializationComplete = false;
+  function hasMeaningfulData(s){
+    if(!s) return false;
+    const jobHasData = j => j && ((j.stations&&j.stations.length) || (j.checks&&j.checks.length) || (j.points&&j.points.length) || (j.start&&j.start.directMm) || (j.start&&j.start.readingM));
+    if(jobHasData(s)) return true;
+    if(s.jobs){ for(const k in s.jobs){ if(jobHasData(s.jobs[k])) return true; } }
+    return false;
+  }
+
+  // ---------- スマホ内「作業中現場」一覧（第1段階） ----------
+  // 従来の自動下書き(DRAFT_KEY、1件だけ)を発展させ、スマホ内に複数の作業中現場を
+  // {id, name, savedAt, site} の形で保持する。siteは既存のsiteオブジェクト(v2形式)をそのまま入れる
+  // ため、クラウド保存(payload)・ファイル保存(JSON)と完全に同じ形＝相互に読み書きできる。
+  const WORKING_SITES_KEY = 'pipeSlopeWorkingSites_v1';
+  // 現在画面に開いている「スマホ内作業中現場」のID。nullの間は「まだどの現場にも紐付いていない」状態で、
+  // 最初の自動保存が走った時点で新規IDを採番する(＝新規作成しても既存の現場を上書きしない)。
+  let currentWorkingSiteId = null;
+  function loadWorkingSitesStore(){
+    try{
+      const raw = localStorage.getItem(WORKING_SITES_KEY);
+      if(!raw) return { version:1, sites:[] };
+      const parsed = JSON.parse(raw);
+      if(!parsed || !Array.isArray(parsed.sites)) return { version:1, sites:[] };
+      return parsed;
+    }catch(e){ return { version:1, sites:[] }; }
+  }
+  function saveWorkingSitesStore(store){
+    try{ localStorage.setItem(WORKING_SITES_KEY, JSON.stringify(store)); }catch(e){}
+  }
+  function nextWorkingSiteId(){ return 'ws'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
+  // 現場名が未設定でもデータを失わないよう、表示名は「名称未設定」にフォールバックする。
+  function workingSiteDisplayName(){
+    const n = (site.siteName || (state.project && state.project.name) || '').trim();
+    return n || '名称未設定';
+  }
+  function siteHasMeaningfulData(s){
+    if(!s || !s.lines) return false;
+    return Object.keys(s.lines).some(k=>hasMeaningfulData(s.lines[k]));
+  }
+  // 旧バージョンの自動下書き(pipeSlopeWorkingDraft_v106、1件だけ保持する形式)が残っている場合、
+  // 新しい「スマホ内の作業中現場」一覧へ安全に1件だけ移行する。
+  // ・新形式ストア(WORKING_SITES_KEY)が既に存在する端末では何もしない(重複移行防止)。
+  // ・移行するだけで、旧キー自体の削除はここでは行わない(削除は既存のinitSite側の処理に任せる＝
+  //   このデータを消す処理を新たに追加しない)。
+  function migrateLegacyDraftIfNeeded(){
+    try{
+      if(localStorage.getItem(WORKING_SITES_KEY)) return; // 新形式は既に存在＝移行済み
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if(!raw) return;
+      const oldData = JSON.parse(raw);
+      if(!oldData) return;
+      let migratedSite;
+      if(oldData.version===2 && oldData.lines){
+        migratedSite = oldData;
+      } else {
+        // 万一もっと古い形式(単体state)が残っていた場合の保険
+        migratedSite = { version:2, siteName:(oldData.project&&oldData.project.name)||'', currentLineId:MAIN_LINE, lines:{} };
+        migratedSite.lines[MAIN_LINE] = oldData;
+      }
+      if(!siteHasMeaningfulData(migratedSite)) return; // 実質空なら移行不要
+      const name = (migratedSite.siteName||'').trim() || '名称未設定';
+      const store = loadWorkingSitesStore();
+      store.sites.push({ id: nextWorkingSiteId(), name, savedAt: new Date().toISOString(), site: migratedSite });
+      saveWorkingSitesStore(store);
+    }catch(e){ /* 移行に失敗しても既存の起動処理(空の新規状態で開始)に影響させない */ }
+  }
+  // 3秒デバウンスの本体。現在開いている作業中現場(currentWorkingSiteId)へ上書き保存する。
+  // まだどの現場にも紐付いていなければ、ここで新規IDを採番して一覧に追加する(初回入力時に1回だけ)。
   function writeDraftNow(){
     if(draftSaveTimer){ clearTimeout(draftSaveTimer); draftSaveTimer=null; }
     if(!draftEnabled) return;
     try{
       site.lines[site.currentLineId] = state;
       site.siteName = state.project.name || site.siteName || '';
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(site));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(site)); // 旧形式キーも従来通り併走で保持(後方互換)
+      const store = loadWorkingSitesStore();
+      const entry = {
+        id: currentWorkingSiteId || nextWorkingSiteId(),
+        name: workingSiteDisplayName(),
+        savedAt: new Date().toISOString(),
+        site: JSON.parse(JSON.stringify(site))
+      };
+      currentWorkingSiteId = entry.id;
+      const idx = store.sites.findIndex(s=>s.id===entry.id);
+      if(idx>=0) store.sites[idx] = entry; else store.sites.push(entry);
+      saveWorkingSitesStore(store);
+      renderWorkingSitesPanel();
     }catch(e){}
   }
   function scheduleDraftSave(){
@@ -778,7 +862,8 @@
     // 連続入力中の端末書込みを避け、最後の操作から3秒後に1回だけ保存する。
     draftSaveTimer = setTimeout(writeDraftNow, 3000);
   }
-  function clearWorkingDraft(){
+  // 「新規」用：今の作業中現場からは切り離すが、一覧からは削除しない(他の現場に影響させないため)。
+  function detachWorkingSite(){
     if(draftSaveTimer){ clearTimeout(draftSaveTimer); draftSaveTimer=null; }
     draftEnabled = false;
     try{
@@ -786,6 +871,26 @@
       localStorage.removeItem(SITE_KEY);
       localStorage.removeItem(AUTOSAVE_KEY);
     }catch(e){}
+    currentWorkingSiteId = null;
+    renderWorkingSitesPanel();
+  }
+  // 「🏠 現場保存」(全ラインをファイル書き出し)の後に呼ばれる、従来からの後始末処理。
+  // 書き出し済みの内容は次回起動時に復元不要という既存仕様を踏襲し、対応する作業中現場も一覧から外す。
+  function clearWorkingDraft(){
+    if(draftSaveTimer){ clearTimeout(draftSaveTimer); draftSaveTimer=null; }
+    draftEnabled = false;
+    try{
+      if(currentWorkingSiteId){
+        const store = loadWorkingSitesStore();
+        store.sites = store.sites.filter(s=>s.id!==currentWorkingSiteId);
+        saveWorkingSitesStore(store);
+      }
+      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(SITE_KEY);
+      localStorage.removeItem(AUTOSAVE_KEY);
+    }catch(e){}
+    currentWorkingSiteId = null;
+    renderWorkingSitesPanel();
   }
   function autosaveState(){
     // 現在ラインをメモリへ反映し、端末への書込みはまとめて低頻度で行う。
@@ -803,17 +908,95 @@
   function clearAutosave(){
     try{ localStorage.removeItem(AUTOSAVE_KEY); }catch(e){}
   }
-  // 画面消灯・アプリ切替の直前は、OSに終了されても復旧できるよう即時保存する。
+  // 画面消灯・アプリ切替・スマホの戻る操作の直前は、OSに終了されても復旧できるよう即時保存する。
+  // beforeunloadには依存しない(モバイルPWAでは発火が不安定なため、pagehide/visibilitychangeを主とする)。
   document.addEventListener('visibilitychange', ()=>{
     if(document.visibilityState==='hidden') writeDraftNow();
   });
   window.addEventListener('pagehide', writeDraftNow);
-  function hasMeaningfulData(s){
-    if(!s) return false;
-    const jobHasData = j => j && ((j.stations&&j.stations.length) || (j.checks&&j.checks.length) || (j.points&&j.points.length) || (j.start&&j.start.directMm) || (j.start&&j.start.readingM));
-    if(jobHasData(s)) return true;
-    if(s.jobs){ for(const k in s.jobs){ if(jobHasData(s.jobs[k])) return true; } }
-    return false;
+  // Page Lifecycle API対応ブラウザ(Android Chrome等)向けの追加の安全網。
+  // バックグラウンドタブがOSにより凍結される直前にも即時保存する。
+  document.addEventListener('freeze', writeDraftNow);
+
+  // ---------- スマホ内「作業中現場」一覧の画面表示 ----------
+  function renderWorkingSitesPanel(){
+    const panel = document.getElementById('workingSitesPanel');
+    if(!panel) return;
+    const store = loadWorkingSitesStore();
+    const list = store.sites.slice().sort((a,b)=> new Date(b.savedAt||0) - new Date(a.savedAt||0));
+    let listHtml;
+    if(!list.length){
+      listHtml = '<div class="empty">まだスマホ内に保存された作業中現場はありません。項目を入力すると自動的にここへ保存されます。</div>';
+    } else {
+      listHtml = list.map(entry=>{
+        const when = entry.savedAt ? new Date(entry.savedAt).toLocaleString('ja-JP') : '不明';
+        const isCurrent = entry.id===currentWorkingSiteId;
+        const cur = isCurrent ? '　<span style="color:var(--blue);">【今開いている現場】</span>' : '';
+        const nameLabel = entry.name || '名称未設定';
+        return '<div class="stationcard'+(isCurrent?' current':'')+'">'
+          + '<div class="top"><span>'+escapeHtml(nameLabel)+cur+'</span></div>'
+          + '<div class="meta">最終保存：'+escapeHtml(when)+'</div>'
+          + '<div class="row" style="margin-top:6px;flex-wrap:wrap;">'
+          + '<button class="btn secondary" data-open-working-site="'+escapeHtml(entry.id)+'" style="padding:6px 12px;">開く</button>'
+          + '<button class="btn danger" data-delete-working-site="'+escapeHtml(entry.id)+'" data-site-name="'+escapeHtml(nameLabel)+'" style="padding:6px 12px;">削除</button>'
+          + '</div>'
+          + '</div>';
+      }).join('');
+    }
+    panel.innerHTML = '<div class="hint">測定中はここに自動保存されます。「開く」で続きから再開できます。</div>'
+      + listHtml
+      + '<button class="btn secondary" id="btnNewWorkingSite" style="margin-top:10px;">＋ 新しい作業中現場を始める</button>';
+    const newBtn = document.getElementById('btnNewWorkingSite');
+    if(newBtn) newBtn.addEventListener('click', startNewFile);
+    panel.querySelectorAll('[data-open-working-site]').forEach(b=>{
+      b.addEventListener('click', ()=>openWorkingSite(b.getAttribute('data-open-working-site')));
+    });
+    panel.querySelectorAll('[data-delete-working-site]').forEach(b=>{
+      b.addEventListener('click', ()=>confirmDeleteWorkingSite(b.getAttribute('data-delete-working-site'), b.getAttribute('data-site-name')));
+    });
+  }
+  // スマホ内の作業中現場を1件、保存時点の状態で画面へ完全復元する。
+  // 既存のapplyLoadedFile/applyCloudSitePayloadと同じ展開ロジックを踏襲する(新形式siteの復元)。
+  function openWorkingSite(id){
+    const store = loadWorkingSitesStore();
+    const entry = store.sites.find(s=>s.id===id);
+    if(!entry) return;
+    try{
+      pushHistory();
+      site = JSON.parse(JSON.stringify(entry.site));
+      migrateSiteLineNames();
+      if(!site.currentLineId || !site.lines[site.currentLineId]) site.currentLineId = Object.keys(site.lines)[0] || MAIN_LINE;
+      const data = site.lines[site.currentLineId] || defaultState();
+      state = Object.assign(defaultState(), JSON.parse(JSON.stringify(data)));
+      migrateLoadedChecks(data);
+      currentWorkingSiteId = entry.id;
+      currentFileBase = null;
+      currentFileHandle = null;
+      undoStack = []; redoStack = [];
+      persistSite();
+      syncFormFields();
+      renderAll();
+      renderWorkingSitesPanel();
+      showModal('スマホ内の作業中現場「'+(entry.name||'名称未設定')+'」を開きました。', ()=>{});
+    }catch(err){
+      showModal('作業中現場の読み込みに失敗しました。\n\nエラー内容: '+(err && err.message ? err.message : err), ()=>{});
+    }
+  }
+  function confirmDeleteWorkingSite(id, name){
+    if(!id) return;
+    const label = name || '名称未設定';
+    showModal(
+      'この作業中現場をスマホから削除しますか？\n\n『'+label+'』\n\n※クラウドに保存済みのデータはこの操作では削除されません。',
+      ()=>{ deleteWorkingSite(id); },
+      { okLabel:'削除する', cancelLabel:'キャンセル', danger:true }
+    );
+  }
+  function deleteWorkingSite(id){
+    const store = loadWorkingSitesStore();
+    store.sites = store.sites.filter(s=>s.id!==id);
+    saveWorkingSitesStore(store);
+    if(currentWorkingSiteId===id) currentWorkingSiteId = null; // 今開いていた現場を削除した場合、画面の内容自体は残す(誤操作で入力中データが消えるのを防ぐ)。次の自動保存で新規現場として保存される。
+    renderWorkingSitesPanel();
   }
 
   // 現在の(アクティブな)種別データをフラットな state から取り出す
@@ -2461,6 +2644,9 @@
           site = { version:2, siteName: state.project.name||'', currentLineId:MAIN_LINE, lines:{} };
           site.lines[MAIN_LINE] = JSON.parse(JSON.stringify(state));
         }
+        // ファイルから読み込んだ内容は、それまで開いていた「スマホ内作業中現場」とは別物として扱う。
+        // ここで切り離しておかないと、次の自動保存で無関係な現場を上書きしてしまう。
+        currentWorkingSiteId = null;
         persistSite();
         undoStack=[]; redoStack=[];
         syncFormFields();
@@ -2758,6 +2944,9 @@
       const data = site.lines[site.currentLineId] || defaultState();
       state = Object.assign(defaultState(), JSON.parse(JSON.stringify(data)));
       migrateLoadedChecks(data);
+      // クラウドから読み込んだ内容も、それまで開いていた「スマホ内作業中現場」とは別物として扱う。
+      // ここで切り離しておかないと、次の自動保存で無関係な現場を上書きしてしまう。
+      currentWorkingSiteId = null;
       persistSite();
       undoStack=[]; redoStack=[];
       syncFormFields();
@@ -3026,7 +3215,7 @@
   }
 
   function startNewFile(){
-    showModal('全てのデータを消去して新規作成します。保存していない内容は失われます。よろしいですか？', ()=>{
+    showModal('新しい作業中現場を開始します。今の内容は「スマホ内の作業中現場」に保存済みのまま一覧に残ります。続けますか？', ()=>{
       flushPendingEdit();
       if(pointsRenderTimer){ clearTimeout(pointsRenderTimer); pointsRenderTimer=null; }
       if(draftSaveTimer){ clearTimeout(draftSaveTimer); draftSaveTimer=null; }
@@ -3038,7 +3227,7 @@
       currentFileHandle = null;
       undoStack = [];
       redoStack = [];
-      clearWorkingDraft();
+      detachWorkingSite(); // 今の作業中現場からは切り離すだけで、一覧からは削除しない
       markSaved(); // 既定状態を基準にし、以後の入力で＊未保存表示になる
       // 入力途中のまま残る一時フォーム（器械を追加・設計GL確認を追加）は state に属さないDOM値のため、
       // 明示的に閉じて空欄に戻す（開いたままだと前回入力した数字が画面に残ってしまう不具合の原因）
@@ -3053,7 +3242,7 @@
       syncFormFields();
       renderAll();
       goToTab('tab-station');
-    });
+    }, { okLabel:'新規作成する', cancelLabel:'キャンセル', danger:false });
   }
   document.getElementById('btnReset').addEventListener('click', startNewFile);
   document.getElementById('btnNewNav').addEventListener('click', startNewFile);
@@ -3746,6 +3935,9 @@
   // データを画面へ展開するのは「読込」またはクラウド現場一覧から選んだ場合のみ（applyLoadedFile／
   // applyCloudSitePayload経由）。
   (function initSite(){
+    // v1.0.18: 起動時にDRAFT_KEYを削除する前に、旧形式の自動下書きが残っていれば
+    // 新しい「スマホ内の作業中現場」一覧へ1件だけ安全に移行する（既存データを消す処理ではない）。
+    migrateLegacyDraftIfNeeded();
     try{
       localStorage.removeItem(DRAFT_KEY);
       localStorage.removeItem(SITE_KEY);
@@ -3754,9 +3946,11 @@
     state = defaultState();
     site = { version:2, siteName:'', currentLineId:MAIN_LINE, lines:{} };
     site.lines[site.currentLineId] = state;
+    currentWorkingSiteId = null; // 起動直後はまだどの作業中現場にも紐付かない（一覧から選ぶか、入力開始で新規作成）
     syncFormFields();
     markSaved();
     renderAll();
+    renderWorkingSitesPanel();
     initializationComplete = true;
     draftEnabled = false; // ユーザーが入力を始めた時点で自動保存が有効になる（scheduleDraftSaveの既存動作）
   })();
