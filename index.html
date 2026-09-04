@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.21">
+<link rel="manifest" href="manifest.json?v=1.0.22">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.21">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.21">
-<link rel="icon" href="favicon.ico?v=1.0.21" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.22">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.22">
+<link rel="icon" href="favicon.ico?v=1.0.22" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.21" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.22" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.21</div>
+  <div class="t3">Version 1.0.22</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -387,7 +387,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.21<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.22<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -1902,6 +1902,15 @@
         + (mt.type==='box' ? '<div class="pchips"><span>№1は最上流(または最下流)の基準点のため、桶桝でも段差処理は行いません（「始点高さ」がそのまま№1の高さになります）</span></div>' : '');
     }
 
+    // ---- 測定位置(管上/管下) UI ----
+    // No.1(始点)も雨水・汚水いずれも「管上」で測定する場合があるため、No.2以降と同じ管上/管下ボタンを
+    // 計算表のNo.1カードにも表示する（従来は「勾配/始点」タブに移動しないと変更できなかった）。
+    // 考え方・補正量(pipeOffsetMm)はNo.2以降(measureLocHtml)と同じ。No.1は地点ごとの管サイズ変更が
+    // 無いため、常にジョブ既定の管サイズ(state.pipe.size)を使う。
+    const startMeasureLoc = sr.measureLoc || 'invert';
+    const startMeasureLocHtml = '<label>測定位置（管上／管下）　※管サイズ'+escapeHtml(String(state.pipe.size))+'mm　補正'+sr.offsetMm+'mm</label>'
+      +'<div class="seg"><button class="'+(startMeasureLoc==='invert'?'active':'')+'" onclick="App.updateStartMeasureLoc(\'invert\')">管下ボタン</button><button class="'+(startMeasureLoc==='top'?'active':'')+'" onclick="App.updateStartMeasureLoc(\'top\')">管上ボタン</button></div>';
+
     // ---- 実測読み入力 UI（単一 or 上流/下流。始点は「未選択」でも入力可＝旧来どおり） ----
     // No.1(始点)は最上流(または最下流)の基準点そのもの。backward側(施工が来る手前側)は「始点高さ」が
     // 既に確定しているため実測入力欄を出さず、forward側(次地点の計算基準になる側)だけ入力できるようにする。
@@ -1928,6 +1937,7 @@
       +'</div>'
       +'<div class="pchips"><span>使用器械: '+escapeHtml(sr.station?sr.station.label:'（器械未設定）')+'</span><span>距離 0mm（基準点）</span></div>'
       + masuTypeHtml
+      + startMeasureLocHtml
       + actualReadingHtml
       + resultHtml
       +'</div>';
@@ -2527,6 +2537,16 @@
     pushHistory();
     if(!state.start.masuType) state.start.masuType = defaultMasuType();
     state.start.masuType.boxStepEnabled = !state.start.masuType.boxStepEnabled;
+    renderPoints();
+    renderHeader();
+  };
+  // 始点(No.1)の測定位置(管上/管下)。計算表タブのNo.1カードから直接切り替えられるようにするボタン用
+  // （従来は「勾配/始点」タブのstartMeasureLocSegからのみ変更可能だった）。同じstate.start.measureLocを
+  // 操作するため、「勾配/始点」タブ側の表示も合わせて再描画する。
+  App.updateStartMeasureLoc = function(loc){
+    pushHistory();
+    state.start.measureLoc = loc;
+    renderSlopeTab();
     renderPoints();
     renderHeader();
   };
