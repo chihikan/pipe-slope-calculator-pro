@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.22">
+<link rel="manifest" href="manifest.json?v=1.0.23">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.22">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.22">
-<link rel="icon" href="favicon.ico?v=1.0.22" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.23">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.23">
+<link rel="icon" href="favicon.ico?v=1.0.23" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -142,11 +142,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.22" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.23" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.22</div>
+  <div class="t3">Version 1.0.23</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -387,7 +387,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.22<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.23<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -835,6 +835,32 @@
     if(s.cloudSiteId) return false; // クラウドに保存済みの現場は、内容の多寡に関わらず空扱いしない(Ver1.0.21)
     return Object.keys(s.lines).every(id=>isCompletelyBlankJob(s.lines[id]));
   }
+  // Ver1.0.22以前の不具合(クラウドの現場を開くたびにローカル作業中現場が増殖する)で、
+  // 既に同じcloudSiteIdを持つ重複エントリが端末に溜まっている場合、最終保存日時が最新の
+  // 1件だけを残して統合する(起動時に1回だけ実行)。クラウド側(Supabase)のデータや、
+  // cloudSiteIdを持たない(＝クラウド未連携の)エントリには一切触れない。
+  function dedupeWorkingSitesByCloudId(){
+    try{
+      const store = loadWorkingSitesStore();
+      const latestByCloudId = new Map();
+      store.sites.forEach(entry=>{
+        const cid = entry.site && entry.site.cloudSiteId;
+        if(!cid) return;
+        const prev = latestByCloudId.get(cid);
+        if(!prev || new Date(entry.savedAt||0) > new Date(prev.savedAt||0)) latestByCloudId.set(cid, entry);
+      });
+      if(!latestByCloudId.size) return;
+      const keepIds = new Set();
+      store.sites.forEach(entry=>{
+        const cid = entry.site && entry.site.cloudSiteId;
+        if(!cid) keepIds.add(entry.id);
+      });
+      latestByCloudId.forEach(entry=>keepIds.add(entry.id));
+      const before = store.sites.length;
+      store.sites = store.sites.filter(entry=>keepIds.has(entry.id));
+      if(store.sites.length!==before) saveWorkingSitesStore(store);
+    }catch(e){}
+  }
   // 一覧から「完全に空」の作業中現場だけを安全に取り除く(起動時に1回だけ実行)。
   // 今開いている現場(currentWorkingSiteId)は、たとえ空に見えても対象から除外する。
   function pruneBlankWorkingSites(){
@@ -887,8 +913,18 @@
       if(!currentWorkingSiteId && siteIsCompletelyBlank(site)) return;
       localStorage.setItem(DRAFT_KEY, JSON.stringify(site)); // 旧形式キーも従来通り併走で保持(後方互換)
       const store = loadWorkingSitesStore();
+      // クラウドの現場を開いた直後はcurrentWorkingSiteIdをnullにする実装になっている(無関係な
+      // ローカル現場を誤って上書きしないための安全策)。そのままだとここで毎回新規IDを採番してしまい、
+      // 「クラウドの現場を開く→自動保存」を繰り返すたびに同名のローカル作業中現場が増殖してしまう
+      // (Ver1.0.22で発覚した不具合)。site.cloudSiteIdが同じ既存エントリがあれば、それを再利用して
+      // 上書きすることで、ローカル一覧の件数を1件に保つ。
+      let workingId = currentWorkingSiteId;
+      if(!workingId && site.cloudSiteId){
+        const existing = store.sites.find(s=> s.site && s.site.cloudSiteId === site.cloudSiteId);
+        if(existing) workingId = existing.id;
+      }
       const entry = {
-        id: currentWorkingSiteId || nextWorkingSiteId(),
+        id: workingId || nextWorkingSiteId(),
         name: workingSiteDisplayName(),
         savedAt: new Date().toISOString(),
         site: JSON.parse(JSON.stringify(site))
@@ -4033,6 +4069,7 @@
     site = { version:2, siteName:'', currentLineId:MAIN_LINE, lines:{} };
     site.lines[site.currentLineId] = state;
     currentWorkingSiteId = null; // 起動直後はまだどの作業中現場にも紐付かない（一覧から選ぶか、入力開始で新規作成）
+    dedupeWorkingSitesByCloudId(); // Ver1.0.22以前の不具合で増殖した同一クラウド現場のローカル重複を統合する
     pruneBlankWorkingSites(); // 過去バージョンの不具合等で残った「完全に空」の作業中現場を安全な範囲で除去する
     syncFormFields();
     markSaved();
