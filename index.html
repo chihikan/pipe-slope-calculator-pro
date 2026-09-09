@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.25">
+<link rel="manifest" href="manifest.json?v=1.0.26">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.25">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.25">
-<link rel="icon" href="favicon.ico?v=1.0.25" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.26">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.26">
+<link rel="icon" href="favicon.ico?v=1.0.26" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -146,11 +146,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.25" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.26" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.25</div>
+  <div class="t3">Version 1.0.26</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -391,7 +391,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.25<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.26<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -1357,6 +1357,11 @@
     // 実測値を実際に読んだ器械が特定できなかった場合のフラグ(旧データ等)。trueの間はactualElevMm等を
     // 計算せずnullのままにする＝currentStation()を代わりに使って計算することは絶対にしない。
     let actualStationUnresolved=false, actualUpStationUnresolved=false, actualDownStationUnresolved=false;
+    // 実際に使った器械の表示用情報(BM-787不具合の再発防止・透明性向上、Ver1.0.26)。
+    // 「625mmは既に累積補正済みの絶対値か」という疑問が再び起きないよう、現況高の根拠(どの器械の
+    // IHいくつを使ったか)を画面にも明示する。計算そのものには使わない(表示専用)。
+    let actualStationLabel=null, actualStationIhMm=null;
+    let actualUpStationLabel=null, actualUpStationIhMm=null, actualDownStationLabel=null, actualDownStationIhMm=null;
 
     // 目標読み(=今の器械で読むべき値)は「今、実際に据えている器械」を使う。これは実測値の解釈とは
     // 別の概念(現時点の指示値)であり、st=currentStation()のままでよい(BM-787不具合とは無関係)。
@@ -1384,6 +1389,7 @@
               const rawDown = downSt.ihMm - Number(mt.downstreamActualReadingM)*1000;
               actualElevDownMm = toInvertElevMm(rawDown, measureLoc, offsetMm);
               diffDownMm = actualElevDownMm - designDownstreamMm;
+              actualDownStationLabel = downSt.label; actualDownStationIhMm = downSt.ihMm;
             } else { actualDownStationUnresolved = true; }
           }
         } else {
@@ -1395,6 +1401,7 @@
               const rawUp = upSt.ihMm - Number(mt.upstreamActualReadingM)*1000;
               actualElevUpMm = toInvertElevMm(rawUp, measureLoc, offsetMm);
               diffUpMm = actualElevUpMm - designUpstreamMm;
+              actualUpStationLabel = upSt.label; actualUpStationIhMm = upSt.ihMm;
             } else { actualUpStationUnresolved = true; }
           }
         }
@@ -1416,6 +1423,7 @@
             const forwardActualElevMm = dirDown ? actualElevDownMm : actualElevUpMm;
             actualElevMm = forwardActualElevMm;
             diffMm = dirDown ? diffDownMm : diffUpMm;
+            actualStationLabel = actSt.label; actualStationIhMm = actSt.ihMm;
           } else { actualStationUnresolved = true; }
         }
       } else {
@@ -1426,6 +1434,7 @@
             const rawActualElevMm = actSt.ihMm - Number(state.start.actualReadingM)*1000;
             actualElevMm = toInvertElevMm(rawActualElevMm, measureLoc, offsetMm);
             diffMm = actualElevMm - designElevMm;
+            actualStationLabel = actSt.label; actualStationIhMm = actSt.ihMm;
           } else { actualStationUnresolved = true; }
         }
       }
@@ -1434,7 +1443,8 @@
       masuType:mt, isDualReading:isDualInput, hasSplit, designUpstreamMm, designDownstreamMm,
       requiredReadingUpInvertM, requiredReadingUpTopM, requiredReadingDownInvertM, requiredReadingDownTopM,
       actualElevUpMm, actualElevDownMm, diffUpMm, diffDownMm,
-      actualStationUnresolved, actualUpStationUnresolved, actualDownStationUnresolved };
+      actualStationUnresolved, actualUpStationUnresolved, actualDownStationUnresolved,
+      actualStationLabel, actualStationIhMm, actualUpStationLabel, actualUpStationIhMm, actualDownStationLabel, actualDownStationIhMm };
   }
 
   function cumulativeDistances(){
@@ -1570,6 +1580,9 @@
       // 実測値を実際に読んだ器械が特定できなかった場合のフラグ(旧データ等)。BM-787不具合の修正：
       // このフラグが立っている間はcurrentStation()等へフォールバックせず、該当のactualElevMm等をnullのままにする。
       let actualStationUnresolved=false, actualUpStationUnresolved=false, actualDownStationUnresolved=false;
+      // 実際に使った器械の表示用情報(BM-787不具合の再発防止・透明性向上、Ver1.0.26)。計算には使わない。
+      let actualStationLabel=null, actualStationIhMm=null;
+      let actualUpStationLabel=null, actualUpStationIhMm=null, actualDownStationLabel=null, actualDownStationIhMm=null;
 
       if(hasSplit){
         const reqUpInvertM = (st.ihMm - designUpstreamMm)/1000;
@@ -1602,6 +1615,7 @@
             const rawUp = upSt.ihMm - Number(effectiveUpActualReadingM)*1000;
             actualElevUpMm = toInvertElevMm(rawUp, measureLoc, currentOffsetMm);
             diffUpMm = actualElevUpMm - designUpstreamMm;
+            actualUpStationLabel = upSt.label; actualUpStationIhMm = upSt.ihMm;
           } else { actualUpStationUnresolved = true; }
         }
         if(effectiveDownActualReadingM!==null && effectiveDownActualReadingM!=='' && effectiveDownActualReadingM!==undefined){
@@ -1610,6 +1624,7 @@
             const rawDown = downSt.ihMm - Number(effectiveDownActualReadingM)*1000;
             actualElevDownMm = toInvertElevMm(rawDown, measureLoc, currentOffsetMm);
             diffDownMm = actualElevDownMm - designDownstreamMm;
+            actualDownStationLabel = downSt.label; actualDownStationIhMm = downSt.ihMm;
           } else { actualDownStationUnresolved = true; }
         }
         // 単一値系フィールド（CSV等の共通列・次地点への計算基準）は、施工が進む方向(forward側)の実測値をミラーする
@@ -1651,6 +1666,7 @@
               else { actualSlopeN = -1; }
               slopeJudge = evaluateSlopeJudge(actualDropMm, segDist*1000);
             }
+            actualStationLabel = actSt.label; actualStationIhMm = actSt.ihMm;
           } else { actualStationUnresolved = true; }
         }
       } else {
@@ -1661,6 +1677,7 @@
             const rawActualElevMm = actSt.ihMm - Number(p.actualReadingM)*1000;
             actualElevMm = toInvertElevMm(rawActualElevMm, measureLoc, currentOffsetMm); // 管下(インバート)基準に換算
             diffMm = actualElevMm - design;
+            actualStationLabel = actSt.label; actualStationIhMm = actSt.ihMm;
             // 実勾配（このセグメントの as-built 勾配率）: baseElevMm/baseDistM が実測起点の場合に意味を持つ
             if(segDist>0){
               const actualDropMm = dirDown ? (baseElevMm - actualElevMm) : (actualElevMm - baseElevMm);
@@ -1682,7 +1699,8 @@
         requiredReadingUpM, requiredReadingDownM, requiredReadingUpInvertM, requiredReadingUpTopM, requiredReadingDownInvertM, requiredReadingDownTopM,
         actualElevUpMm, actualElevDownMm, diffUpMm, diffDownMm,
         effectiveUpActualReadingM, effectiveDownActualReadingM,
-        actualStationUnresolved, actualUpStationUnresolved, actualDownStationUnresolved });
+        actualStationUnresolved, actualUpStationUnresolved, actualDownStationUnresolved,
+        actualStationLabel, actualStationIhMm, actualUpStationLabel, actualUpStationIhMm, actualDownStationLabel, actualDownStationIhMm });
 
       // 次地点の基準を更新：実測値があればそれを、なければ理論設計値を引き継ぐ
       // 上流/下流が分かれる地点では、施工が実際に進む方向(forward側)の値を優先して引き継ぐ
@@ -1953,6 +1971,16 @@
   // 通常地点(renderPoints)・始点No.1(renderStartRowHtml)の両方で使う（表示ロジックの重複防止）。
   // r: computeAllPoints()の1件 or computeStartRow()の結果。dirDown: 施工方向。isDual: 上流/下流を個別入力できる桝か。
   // forwardLabel: 単一実測欄が表す側('上流側'/'下流側')。plainLabel: 段差なし時の設計高ラベル(通常地点は'管下'、始点は'始点')。
+  // 現況高が「どの器械(IHいくつ)の実測読みから算出されたか」を示す小さな注記(BM-787不具合の
+  // 再発防止・透明性向上、Ver1.0.26)。器械高は既に第1器械からの盛替え累積補正を反映した絶対値
+  // であることを明示し、「盛替え後のIHをそのままBM±0として使ってよいのか」という疑問が再発しても
+  // 画面上ですぐ検算できるようにする。計算そのものには一切関与しない、表示専用の注記。
+  function usedStationHint(label, ihMm){
+    if(label===null || label===undefined) return '';
+    // 既存の「使用器械」ラベル(目標読み側・sr.station/r.stationの表示)とは別物であることが分かるよう、
+    // あえて「実測に使用した器械」という文言にする(この実測値そのものを読んだ器械、という意味)。
+    return '<div class="hint" style="margin:2px 0 0;">実測に使用した器械: '+escapeHtml(label)+'(IH'+fmtMm(ihMm)+'mm、盛替え累積補正込み)</div>';
+  }
   function buildResultHtml(r, dirDown, isDual, forwardLabel, plainLabel, isStartRow, kindPrefix){
     // kindPrefix: 実測値を読んだ器械が不明な場合の救済ピッカー(unresolvedStationPickerHtml)を
     // どのフィールドに対して出すかを示す接頭辞。'start' または 'pt:<id>'。省略時はピッカーを出さない
@@ -1972,10 +2000,10 @@
         const upIsMirror = dirDown; // dirDownなら上流側がbackward(＝始点高さと同じ)
         const upCell = upIsMirror
           ? '<div class="r">現況高(上流・管下換算)<b>BM'+fmtMm(r.actualElevUpMm)+'</b>mm<div class="hint" style="margin:2px 0 0;">※始点高さと同じ</div></div>'
-          : (r.diffUpMm===null ? '<div class="r">'+(r.actualUpStationUnresolved && kp ? unresolvedStationPickerHtml(kp+':actualup') : '<span style="color:var(--muted);">実測読みを入力すると表示</span>')+'</div>' : '<div class="r">現況高(上流・管下換算)<b>BM'+fmtMm(r.actualElevUpMm)+'</b>mm</div>');
+          : (r.diffUpMm===null ? '<div class="r">'+(r.actualUpStationUnresolved && kp ? unresolvedStationPickerHtml(kp+':actualup') : '<span style="color:var(--muted);">実測読みを入力すると表示</span>')+'</div>' : '<div class="r">現況高(上流・管下換算)<b>BM'+fmtMm(r.actualElevUpMm)+'</b>mm'+usedStationHint(r.actualUpStationLabel, r.actualUpStationIhMm)+'</div>');
         const downCell = !upIsMirror
           ? '<div class="r">現況高(下流・管下換算)<b>BM'+fmtMm(r.actualElevDownMm)+'</b>mm<div class="hint" style="margin:2px 0 0;">※始点高さと同じ</div></div>'
-          : (r.diffDownMm===null ? '<div class="r">'+(r.actualDownStationUnresolved && kp ? unresolvedStationPickerHtml(kp+':actualdown') : '<span style="color:var(--muted);">実測読みを入力すると表示</span>')+'</div>' : '<div class="r">現況高(下流・管下換算)<b>BM'+fmtMm(r.actualElevDownMm)+'</b>mm</div>');
+          : (r.diffDownMm===null ? '<div class="r">'+(r.actualDownStationUnresolved && kp ? unresolvedStationPickerHtml(kp+':actualdown') : '<span style="color:var(--muted);">実測読みを入力すると表示</span>')+'</div>' : '<div class="r">現況高(下流・管下換算)<b>BM'+fmtMm(r.actualElevDownMm)+'</b>mm'+usedStationHint(r.actualDownStationLabel, r.actualDownStationIhMm)+'</div>');
         // 目標との差は施工調整用の参考値（合否判定には使わない。合否は勾配判定のみで行う）。
         const refDiffMm = dirDown ? r.diffDownMm : r.diffUpMm;
         const refCells = refDiffMm===null ? '' : (upIsMirror
@@ -1985,15 +2013,15 @@
       } else if(isDual){
         // 目標との差(施工調整用の参考値)は上流側の実測値のみで表示する。下流側は段差分ズレるのが設計通り。
         // 合否は高さの許容差ではなく、区間の実測勾配だけで判定する(slopeJudgeBlockHtmlを参照)。
-        actualBlock = '<div class="r">現況高(上流・管下換算)'+(r.diffUpMm===null ? (r.actualUpStationUnresolved && kp ? '<br>'+unresolvedStationPickerHtml(kp+':actualup') : '<span style="color:var(--muted);">未入力</span>') : '<b>BM'+fmtMm(r.actualElevUpMm)+'</b>mm')+'</div>'
-          +'<div class="r">現況高(下流・管下換算)'+(r.diffDownMm===null ? (r.actualDownStationUnresolved && kp ? '<br>'+unresolvedStationPickerHtml(kp+':actualdown') : '<span style="color:var(--muted);">未入力</span>') : '<b>BM'+fmtMm(r.actualElevDownMm)+'</b>mm')+'</div>'
+        actualBlock = '<div class="r">現況高(上流・管下換算)'+(r.diffUpMm===null ? (r.actualUpStationUnresolved && kp ? '<br>'+unresolvedStationPickerHtml(kp+':actualup') : '<span style="color:var(--muted);">未入力</span>') : '<b>BM'+fmtMm(r.actualElevUpMm)+'</b>mm'+usedStationHint(r.actualUpStationLabel, r.actualUpStationIhMm))+'</div>'
+          +'<div class="r">現況高(下流・管下換算)'+(r.diffDownMm===null ? (r.actualDownStationUnresolved && kp ? '<br>'+unresolvedStationPickerHtml(kp+':actualdown') : '<span style="color:var(--muted);">未入力</span>') : '<b>BM'+fmtMm(r.actualElevDownMm)+'</b>mm'+usedStationHint(r.actualDownStationLabel, r.actualDownStationIhMm))+'</div>'
           + (r.diffUpMm===null ? '' : (
               '<div class="r">目標との差(上流)<b>'+fmtSignedDiffMm(r.diffUpMm)+'</b></div>'
               +'<div class="r"></div>'
             ));
       } else {
         // 自動段差(90YS等)：実測欄は1つ・常に上流側の読みとして扱う。下流側は段差分を差し引いた参考値を表示するのみ。
-        actualBlock = '<div class="r">'+(r.diffUpMm===null ? (r.actualStationUnresolved && kp ? unresolvedStationPickerHtml(kp+':actual') : '<span style="color:var(--muted);">実測読みを入力すると表示</span>') : '現況高(上流・管下換算)<b>BM'+fmtMm(r.actualElevUpMm)+'</b>mm')+'</div>'
+        actualBlock = '<div class="r">'+(r.diffUpMm===null ? (r.actualStationUnresolved && kp ? unresolvedStationPickerHtml(kp+':actual') : '<span style="color:var(--muted);">実測読みを入力すると表示</span>') : '現況高(上流・管下換算)<b>BM'+fmtMm(r.actualElevUpMm)+'</b>mm'+usedStationHint(r.actualStationLabel, r.actualStationIhMm))+'</div>'
           +'<div class="r">'+(r.diffDownMm===null ? (r.actualStationUnresolved && kp ? '' : '<span style="color:var(--muted);">実測読みを入力すると表示</span>') : '現況高(下流・管下換算)<b>BM'+fmtMm(r.actualElevDownMm)+'</b>mm')+'</div>'
           +'<div class="r">'+(r.diffUpMm===null ? '' : '目標との差(上流)<b>'+fmtSignedDiffMm(r.diffUpMm)+'</b>')+'</div>'
           +'<div class="r"></div>';
@@ -2018,7 +2046,7 @@
       +'<div class="r">目標読み(管上)<b>'+fmtReadingMm(r.requiredReadingTopM)+'</b>mm</div>'
       + (r.diffMm===null
          ? (r.actualStationUnresolved && kp ? '<div class="r" style="grid-column:1/3;">'+unresolvedStationPickerHtml(kp+':actual')+'</div>' : '<div class="r" style="color:var(--muted);">実測読みを入力すると差を表示</div>')
-         : '<div class="r">現況高(管下換算)<b>BM'+fmtMm(r.actualElevMm)+'</b>mm</div>')
+         : '<div class="r">現況高(管下換算)<b>BM'+fmtMm(r.actualElevMm)+'</b>mm'+usedStationHint(r.actualStationLabel, r.actualStationIhMm)+'</div>')
       + (r.diffMm===null ? '' : '<div class="r">目標との差<b>'+fmtSignedDiffMm(r.diffMm)+'</b></div>')
       + slopeJudgeBlockHtml(r.slopeJudge)
       +'</div>';
