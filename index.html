@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.27">
+<link rel="manifest" href="manifest.json?v=1.0.28">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.27">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.27">
-<link rel="icon" href="favicon.ico?v=1.0.27" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.28">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.28">
+<link rel="icon" href="favicon.ico?v=1.0.28" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -146,11 +146,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.27" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.28" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.27</div>
+  <div class="t3">Version 1.0.28</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -169,7 +169,7 @@
   </div>
   <div class="summary">
     <div class="box">BM<b id="sumBM">BM±0</b></div>
-    <div class="box">現在の器械高(IH)<b id="sumIH">未設定</b></div>
+    <div class="box">現在の器械読み<b id="sumIH">未設定</b></div>
     <div class="box">始点高さ<b id="sumStart">未設定</b></div>
     <div class="box">勾配<b id="sumSlope">未設定</b></div>
   </div>
@@ -391,7 +391,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.27<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.28<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -1793,7 +1793,7 @@
       return '<div class="stationcard'+(cur?' current':'')+'">'
         +'<div class="top"><span>'+escapeHtml(s.label)+(cur?'　【現在使用中】':'')+'</span>'
         +'<button class="iconbtn del" onclick="App.deleteStation(\''+s.id+'\')">🗑</button></div>'
-        +'<div class="meta">器械高(IH) = <b>'+fmtMm(s.ihMm)+'mm</b>'+correctionHtml+'<br>'+metaHtml+'</div>'
+        +'<div class="meta">器械読み = <b>'+fmtMm(s.ihMm)+'mm</b>'+correctionHtml+'<br>'+metaHtml+'</div>'
         +'</div>';
     }).join('') + refCheckHtml();
   }
