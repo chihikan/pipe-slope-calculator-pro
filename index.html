@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.28">
+<link rel="manifest" href="manifest.json?v=1.0.29">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.28">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.28">
-<link rel="icon" href="favicon.ico?v=1.0.28" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.29">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.29">
+<link rel="icon" href="favicon.ico?v=1.0.29" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -146,11 +146,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.28" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.29" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.28</div>
+  <div class="t3">Version 1.0.29</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -391,7 +391,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.28<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.29<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -1552,6 +1552,12 @@
     let baseElevMm = startRow.actualElevMm!==null ? startRow.actualElevMm : startElev;
     let baseDistM = 0;            // 基準となった地点の累計距離
     let baseSource = startRow.actualElevMm!==null ? ('実測(No.1' + (startRow.hasSplit ? (dirDown?'-下流':'-上流') : '') + ')') : '始点';   // 表示用：何を基準に計算しているか
+    // 実測勾配の合否判定は「上流側(流入側)の配管実測高」どうしの差だけで行う（桝内部の段差＝桶桝10mm等は
+    // 流入・放流の高さ差としてのみ扱い、区間の実測勾配計算には持ち込まない）。設計高カスケード用の
+    // baseElevMm(forward側＝放流側)とは別に、上流側の値を baseJudgeElevMm として引き継ぐ。
+    let baseJudgeElevMm = startRow.hasSplit
+      ? ((startRow.actualElevUpMm!==null && startRow.actualElevUpMm!==undefined) ? startRow.actualElevUpMm : startRow.designUpstreamMm)
+      : (startRow.actualElevMm!==null ? startRow.actualElevMm : startElev);
     let currentOffsetMm = pipeOffsetMm(); // 現在有効な管上/管下補正mm（途中で管サイズが変わればここが更新される）
     let currentSizeLabel = state.pipe.size+'mm(既定)';
 
@@ -1652,11 +1658,12 @@
         const forwardActualElevMm = dirDown ? actualElevDownMm : actualElevUpMm;
         actualElevMm = forwardActualElevMm;
         diffMm = dirDown ? diffDownMm : diffUpMm;
-        // 実勾配(この区間の as-built 勾配)は、前地点からの配管が実際につながる側(backward側＝この桝の手前側)の
-        // 実測値で計算する。forward側(段差適用後)を使うと、桝内部の段差(構造物)を配管の勾配に含めてしまい誤差になる。
-        const backwardActualElevMm = dirDown ? actualElevUpMm : actualElevDownMm;
-        if(backwardActualElevMm!==null && segDist>0){
-          const actualDropMm = dirDown ? (baseElevMm - backwardActualElevMm) : (backwardActualElevMm - baseElevMm);
+        // 実測勾配(この区間の合否判定)は、常に「上流側(流入側)の配管実測高」どうしの差で求める。
+        // 桝内部の段差(桶桝10mm等・構造物)は流入/放流の差としてのみ扱い、区間の勾配計算には含めない。
+        // 前地点も同じ考え方で上流側の値(baseJudgeElevMm)を引き継いでいる。
+        const judgeElevMm = actualElevUpMm;
+        if(judgeElevMm!==null && judgeElevMm!==undefined && baseJudgeElevMm!==null && baseJudgeElevMm!==undefined && segDist>0){
+          const actualDropMm = dirDown ? (baseJudgeElevMm - judgeElevMm) : (judgeElevMm - baseJudgeElevMm);
           if(actualDropMm>0){ actualSlopeN = Math.round(((segDist*1000)/actualDropMm)*10)/10; }
           else if(actualDropMm===0){ actualSlopeN = Infinity; }
           else { actualSlopeN = -1; }
@@ -1677,11 +1684,11 @@
             const forwardActualElevMm = dirDown ? actualElevDownMm : actualElevUpMm;
             actualElevMm = forwardActualElevMm;
             diffMm = dirDown ? diffDownMm : diffUpMm;
-            // 実勾配(この区間の as-built 勾配)は、前地点からの配管が実際につながる側(backward側＝この桝の手前側)の
-            // 実測値で計算する。段差(自動+30mm等)は桝内部の構造物であり、配管の勾配には含めない。
-            const backwardActualElevMm = dirDown ? actualElevUpMm : actualElevDownMm;
-            if(segDist>0){
-              const actualDropMm = dirDown ? (baseElevMm - backwardActualElevMm) : (backwardActualElevMm - baseElevMm);
+            // 実測勾配(合否判定)は常に「上流側(流入側)の配管実測高」どうしの差で求める。
+            // 段差(自動+30mm等)は桝内部の構造物であり、区間の勾配計算には含めない。
+            const judgeElevMm = actualElevUpMm;
+            if(judgeElevMm!==null && judgeElevMm!==undefined && baseJudgeElevMm!==null && baseJudgeElevMm!==undefined && segDist>0){
+              const actualDropMm = dirDown ? (baseJudgeElevMm - judgeElevMm) : (judgeElevMm - baseJudgeElevMm);
               if(actualDropMm>0){ actualSlopeN = Math.round(((segDist*1000)/actualDropMm)*10)/10; }
               else if(actualDropMm===0){ actualSlopeN = Infinity; }
               else { actualSlopeN = -1; }
@@ -1699,9 +1706,11 @@
             actualElevMm = toInvertElevMm(rawActualElevMm, measureLoc, currentOffsetMm); // 管下(インバート)基準に換算
             diffMm = actualElevMm - design;
             actualStationLabel = actSt.label; actualStationIhMm = actSt.ihMm;
-            // 実勾配（このセグメントの as-built 勾配率）: baseElevMm/baseDistM が実測起点の場合に意味を持つ
-            if(segDist>0){
-              const actualDropMm = dirDown ? (baseElevMm - actualElevMm) : (actualElevMm - baseElevMm);
+            // 実測勾配（この区間の合否判定）：上流側どうしの差で判定する。前地点が段差桝の場合は
+            // 前地点の上流側(段差適用前)の値 baseJudgeElevMm を使い、桝内部の段差は含めない。
+            // 段差の無い通常地点は actualElevMm がそのまま上流側の値になる。
+            if(baseJudgeElevMm!==null && baseJudgeElevMm!==undefined && segDist>0){
+              const actualDropMm = dirDown ? (baseJudgeElevMm - actualElevMm) : (actualElevMm - baseJudgeElevMm);
               if(actualDropMm>0){
                 actualSlopeN = Math.round(((segDist*1000)/actualDropMm)*10)/10;
               } else if(actualDropMm===0){
@@ -1735,13 +1744,18 @@
           baseElevMm = design; // = forward側の設計値
           baseDistM = cumDist;
         }
+        // 実測勾配判定用の基準は常に上流側(流入側・段差適用前)。桝内部の段差を次区間に持ち越さない。
+        baseJudgeElevMm = (actualElevUpMm!==null && actualElevUpMm!==undefined) ? actualElevUpMm
+          : ((designUpstreamMm!==null && designUpstreamMm!==undefined) ? designUpstreamMm : design);
       } else if(actualElevMm!==null){
         baseElevMm = actualElevMm;
         baseDistM = cumDist;
         baseSource = '実測(' + p.label + ')';
+        baseJudgeElevMm = actualElevMm;
       } else {
         baseElevMm = design;
         baseDistM = cumDist;
+        baseJudgeElevMm = design;
       }
     }
     return results;

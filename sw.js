@@ -1,14 +1,14 @@
-// 配管勾配計算 Pro Service Worker (v1.0.28)
-// 目的: キャッシュバージョンを1.0.28に統一し、旧キャッシュ(「器械高(IH)」表示を「器械読み」に変更する前のindex.html等)を確実に一掃する。
-const CACHE_NAME = 'pipe-slope-calculator-v1.0.28';
+// 配管勾配計算 Pro Service Worker (v1.0.29)
+// 目的: キャッシュバージョンを1.0.29に統一し、旧キャッシュ(段差桝の次区間の実測勾配判定を放流側基準で行っていた頃のindex.html等)を確実に一掃する。
+const CACHE_NAME = 'pipe-slope-calculator-v1.0.29';
 const ASSETS = [
   './',
   './index.html',
-  './manifest.json?v=1.0.28',
-  './icon-192.png?v=1.0.28',
-  './icon-512.png?v=1.0.28',
-  './favicon.ico?v=1.0.28',
-  './apple-touch-icon.png?v=1.0.28',
+  './manifest.json?v=1.0.29',
+  './icon-192.png?v=1.0.29',
+  './icon-512.png?v=1.0.29',
+  './favicon.ico?v=1.0.29',
+  './apple-touch-icon.png?v=1.0.29',
   './vendor/supabase.min.js'
 ];
 
