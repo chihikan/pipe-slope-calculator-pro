@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.26">
+<link rel="manifest" href="manifest.json?v=1.0.27">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.26">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.26">
-<link rel="icon" href="favicon.ico?v=1.0.26" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.27">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.27">
+<link rel="icon" href="favicon.ico?v=1.0.27" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -146,11 +146,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.26" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.27" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.26</div>
+  <div class="t3">Version 1.0.27</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -391,7 +391,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.26<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.27<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -1211,6 +1211,27 @@
     return { baselineMm, computedMm, diffMm, ok: diffMm===0 };
   }
 
+  // 「累積補正値」：初回BM読み値を絶対基準として固定し、盛替えのたびに
+  //   新累積補正 = 旧累積補正 + 旧器械前視 − 新器械後視
+  // を積み上げていく仕様(Ver1.0.27)。1台目は0、以降は保存されている旧器械前視/新器械後視だけを
+  // 使って先頭から順に計算し直す(=既存データを読み込んだ場合も、保存済みの値を鵜呑みにせず
+  // basis.fsOldM/basis.readingMから毎回再計算する。旧バージョンのデータで
+  // stations[i].cumulativeCorrectionMmが無くても問題なく動作する)。
+  // ihMm(器械高)の計算式自体はここでは一切変更しない。
+  function computeCorrectionChain(){
+    const stations = state.stations;
+    if(!stations.length || !stations[0].basis || stations[0].basis.type!=='BM') return [];
+    const chain = [0]; // 1台目(BM)は補正0
+    let correction = 0;
+    for(let i=1;i<stations.length;i++){
+      const b = stations[i].basis;
+      if(!b || b.type!=='TP' || b.fsOldM===undefined || b.fsOldM===null){ chain.push(null); continue; } // 想定外構造は補正不明とする(安全側)
+      correction = correction + Number(b.fsOldM)*1000 - Number(b.readingM)*1000;
+      chain.push(correction);
+    }
+    return chain;
+  }
+
   // ---------- 配管サイズによる管上/管下 補正 ----------
   // 管上（パイプ天端）で測定した場合、管下(インバート)基準に換算するための補正量(mm)。
   // 管上での読み = 管下相当の読み － 補正mm　／　管上での高さ = 管下相当高さ ＋ 補正mm
@@ -1758,6 +1779,7 @@
       wrap.innerHTML = '<div class="empty">まだ器械が設置されていません。</div>';
       return;
     }
+    const correctionChain = computeCorrectionChain(); // 表示のたびに先頭から再計算する(保存値を鵜呑みにしない)
     wrap.innerHTML = state.stations.map((s,i)=>{
       const cur = i===state.stations.length-1;
       let metaHtml = '';
@@ -1766,10 +1788,12 @@
       } else {
         metaHtml = s.basis.tpLabel+' にて盛替え　旧器械前視:'+fmtReadingMm(s.basis.fsOldM)+'mm (TP高さ '+fmtMm(s.basis.tpElevMm)+'mm)　→　新器械後視:'+fmtReadingMm(s.basis.readingM)+'mm';
       }
+      const correctionMm = correctionChain[i];
+      const correctionHtml = (correctionMm===null||correctionMm===undefined) ? '' : '　累積補正: <b>'+fmtMm(correctionMm)+'mm</b>';
       return '<div class="stationcard'+(cur?' current':'')+'">'
         +'<div class="top"><span>'+escapeHtml(s.label)+(cur?'　【現在使用中】':'')+'</span>'
         +'<button class="iconbtn del" onclick="App.deleteStation(\''+s.id+'\')">🗑</button></div>'
-        +'<div class="meta">器械高(IH) = <b>'+fmtMm(s.ihMm)+'mm</b><br>'+metaHtml+'</div>'
+        +'<div class="meta">器械高(IH) = <b>'+fmtMm(s.ihMm)+'mm</b>'+correctionHtml+'<br>'+metaHtml+'</div>'
         +'</div>';
     }).join('') + refCheckHtml();
   }
@@ -2483,7 +2507,7 @@
     if(v==='' || isNaN(Number(v))){ showModal('数値を入力してください。', ()=>{}); return; }
     const readingM = Number(v)/1000;
     pushHistory();
-    state.stations.push({ id: nextId(), label:'第1器械点', ihMm: 0 + readingM*1000, basis:{ type:'BM', readingM } });
+    state.stations.push({ id: nextId(), label:'第1器械点', ihMm: 0 + readingM*1000, basis:{ type:'BM', readingM }, cumulativeCorrectionMm: 0 });
     closeStationForms();
     renderAll();
   });
@@ -2498,9 +2522,15 @@
     const fsOldM = Number(fsOld)/1000, bsNewM = Number(bsNew)/1000;
     const tpElevMm = cur.ihMm - fsOldM*1000;
     const newIhMm = tpElevMm + bsNewM*1000;
+    // 累積補正値(Ver1.0.27)：既存のihMm計算式(TP方式)は変更せず、別に「旧累積補正+旧器械前視−新器械後視」
+    // を積み上げる。保存済みcumulativeCorrectionMmが無い(旧データ)場合に備え、
+    // computeCorrectionChain()で先頭から再計算した値を使う(currentStation()単体の値を信用しない)。
+    const priorChain = computeCorrectionChain();
+    const priorCorrectionMm = priorChain.length ? (priorChain[priorChain.length-1] || 0) : 0;
+    const newCorrectionMm = priorCorrectionMm + fsOldM*1000 - bsNewM*1000;
     pushHistory();
     state.stations.push({ id: nextId(), label:'第'+(state.stations.length+1)+'器械点', ihMm:newIhMm,
-      basis:{ type:'TP', tpLabel, fsOldM, readingM:bsNewM, tpElevMm } });
+      basis:{ type:'TP', tpLabel, fsOldM, readingM:bsNewM, tpElevMm }, cumulativeCorrectionMm: newCorrectionMm });
     closeStationForms();
     renderAll();
   });
@@ -4244,7 +4274,7 @@
   });
 
   // デバッグ/検証用（アプリの動作には影響しません）
-  App._debug = { computeAllPoints, computeStartRow, buildCsvContent, buildTextSummary, buildFileBaseName, buildXlsxBlob, buildTableRows, buildSimpleExcelTableRows, getState:()=>state, getSite:()=>site, switchLine, nextBranchId, renderAll, computeBmReferenceCheck };
+  App._debug = { computeAllPoints, computeStartRow, buildCsvContent, buildTextSummary, buildFileBaseName, buildXlsxBlob, buildTableRows, buildSimpleExcelTableRows, getState:()=>state, getSite:()=>site, switchLine, nextBranchId, renderAll, computeBmReferenceCheck, computeCorrectionChain };
 
   // ---------- 初期化 ----------
   // 旧形式(単体ファイル)取り込み時に汚水を選択状態にするための関数
