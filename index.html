@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.29">
+<link rel="manifest" href="manifest.json?v=1.0.30">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.29">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.29">
-<link rel="icon" href="favicon.ico?v=1.0.29" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.30">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.30">
+<link rel="icon" href="favicon.ico?v=1.0.30" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -146,11 +146,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.29" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.30" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.29</div>
+  <div class="t3">Version 1.0.30</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -391,7 +391,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.29<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.30<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -1529,6 +1529,21 @@
       + (sj.pass ? '' : '<div class="hint" style="margin-top:2px;">'+slopeJudgeReasonText(sj)+'</div>')
       +'</div>';
   }
+  // この区間に実測点はあるが、前地点／始点の実測標高が未確定で実測勾配を出せないときの表示。
+  // 設計値で代用して数値を出すことは絶対にしない（実測勾配＝実測標高－実測標高のみ）。
+  // 現場で次に何をすればよいかが分かる文章にする。
+  function slopeJudgeUnavailableHtml(r){
+    if(!r || !r.slopeJudgeUnavailable) return '';
+    const msg = {
+      'start-station': '始点(No.1)の実測値を測った器械が未選択です。上の No.1 の欄で「この実測値を測った器械」を選ぶと、この区間の実測勾配を計算します。',
+      'start-noreading': '始点(No.1)の実測読みが未入力です。No.1 に実測読みを入力すると、この区間の実測勾配を計算します。',
+      'prev-station': '前の地点の実測値を測った器械が未選択です。前の地点の欄で器械を選ぶと、この区間の実測勾配を計算します。',
+      'prev-noreading': '前の地点の実測読みが未入力です。前の地点に実測読みを入力すると、この区間の実測勾配を計算します。'
+    }[r.slopeJudgeUnavailableReason] || '前の地点(または始点)の実測標高が未確定のため、この区間の実測勾配は計算できません。';
+    return '<div class="r" style="grid-column:1/3;">実測勾配<b>判定不能</b>'
+      + '<div class="hint" style="margin-top:2px;color:var(--amber);">'+msg+'</div>'
+      + '</div>';
+  }
 
   // 実測値による連鎖再計算：ある地点で実測読みが入力されると、その実測高(as-built)を
   // 次の地点以降の計算基準として自動的に引き継ぐ（現場で計算通りに施工できない前提の再計算）。
@@ -1555,9 +1570,12 @@
     // 実測勾配の合否判定は「上流側(流入側)の配管実測高」どうしの差だけで行う（桝内部の段差＝桶桝10mm等は
     // 流入・放流の高さ差としてのみ扱い、区間の実測勾配計算には持ち込まない）。設計高カスケード用の
     // baseElevMm(forward側＝放流側)とは別に、上流側の値を baseJudgeElevMm として引き継ぐ。
+    // 【重要】baseJudgeElevMm は「解決済みの実測標高」のときだけ値を持ち、実測が無い／実測に使った器械が
+    // 不明なときは null にする。設計高さ(startElev / designUpstreamMm 等)を実測値の代用として使わない
+    // ＝実測勾配は必ず「実測標高－実測標高」だけで計算する。null の区間は判定不能(表示しない)。
     let baseJudgeElevMm = startRow.hasSplit
-      ? ((startRow.actualElevUpMm!==null && startRow.actualElevUpMm!==undefined) ? startRow.actualElevUpMm : startRow.designUpstreamMm)
-      : (startRow.actualElevMm!==null ? startRow.actualElevMm : startElev);
+      ? ((startRow.actualElevUpMm!==null && startRow.actualElevUpMm!==undefined) ? startRow.actualElevUpMm : null)
+      : (startRow.actualElevMm!==null ? startRow.actualElevMm : null);
     let currentOffsetMm = pipeOffsetMm(); // 現在有効な管上/管下補正mm（途中で管サイズが変わればここが更新される）
     let currentSizeLabel = state.pipe.size+'mm(既定)';
 
@@ -1578,7 +1596,7 @@
       const isDualInput = isDualReadingType(state.pipe.type, mt.type); // 上流/下流を個別に手入力できる桝(DR/DRW・桶桝)か
 
       if(baseElevMm===null || !st || !N){
-        results.push({ designBeforeMm:null, designElevMm:null, requiredReadingM:null, requiredReadingInvertM:null, requiredReadingTopM:null, actualElevMm:null, diffMm:null, station:st, baseSource, actualSlopeN:null, slopeJudge:null, sizeLabel:currentSizeLabel, offsetMm:currentOffsetMm,
+        results.push({ designBeforeMm:null, designElevMm:null, requiredReadingM:null, requiredReadingInvertM:null, requiredReadingTopM:null, actualElevMm:null, diffMm:null, station:st, baseSource, actualSlopeN:null, slopeJudge:null, slopeJudgeUnavailable:false, slopeJudgeUnavailableReason:null, sizeLabel:currentSizeLabel, offsetMm:currentOffsetMm,
           masuType:mt, isDualReading:isDualInput, hasSplit:false, designUpstreamMm:null, designDownstreamMm:null,
           requiredReadingUpM:null, requiredReadingDownM:null, requiredReadingUpInvertM:null, requiredReadingUpTopM:null, requiredReadingDownInvertM:null, requiredReadingDownTopM:null,
           actualElevUpMm:null, actualElevDownMm:null, diffUpMm:null, diffDownMm:null,
@@ -1724,7 +1742,29 @@
         }
       }
 
-      results.push({ designBeforeMm, designElevMm:design, requiredReadingM, requiredReadingInvertM, requiredReadingTopM, actualElevMm, diffMm, station:st, baseSource, actualSlopeN, slopeJudge, sizeLabel:currentSizeLabel, offsetMm:currentOffsetMm,
+      // この区間に実測点はあるのに、前地点／始点の実測標高が未確定(baseJudgeElevMm===null)で
+      // 実測勾配を出せない状態。設計値で代用せず「判定不能」として画面に明示する。
+      const thisRowHasActualElev = (actualElevMm!==null) || (actualElevUpMm!==null && actualElevUpMm!==undefined) || (actualElevDownMm!==null && actualElevDownMm!==undefined);
+      const slopeJudgeUnavailable = (slopeJudge===null && segDist>0 && (baseJudgeElevMm===null || baseJudgeElevMm===undefined) && thisRowHasActualElev);
+      // 現場で次に何をすればよいか分かるよう、判定不能の理由を分けて持たせる。
+      let slopeJudgeUnavailableReason = null;
+      if(slopeJudgeUnavailable){
+        const hasStartReading = state.start.actualReadingM!==null && state.start.actualReadingM!=='' && state.start.actualReadingM!==undefined;
+        if(i===0){
+          slopeJudgeUnavailableReason = (hasStartReading || startRow.actualStationUnresolved) ? 'start-station' : 'start-noreading';
+        } else {
+          const pv = state.points[i-1];
+          const pmt = pv && (pv.masuType || {});
+          const prevHasReading = !!(pv && (
+            (pv.actualReadingM!==null && pv.actualReadingM!=='' && pv.actualReadingM!==undefined) ||
+            (pmt.upstreamActualReadingM!==null && pmt.upstreamActualReadingM!=='' && pmt.upstreamActualReadingM!==undefined) ||
+            (pmt.downstreamActualReadingM!==null && pmt.downstreamActualReadingM!=='' && pmt.downstreamActualReadingM!==undefined)
+          ));
+          slopeJudgeUnavailableReason = prevHasReading ? 'prev-station' : 'prev-noreading';
+        }
+      }
+
+      results.push({ designBeforeMm, designElevMm:design, requiredReadingM, requiredReadingInvertM, requiredReadingTopM, actualElevMm, diffMm, station:st, baseSource, actualSlopeN, slopeJudge, slopeJudgeUnavailable, slopeJudgeUnavailableReason, sizeLabel:currentSizeLabel, offsetMm:currentOffsetMm,
         masuType:mt, isDualReading:isDualInput, hasSplit, designUpstreamMm, designDownstreamMm,
         requiredReadingUpM, requiredReadingDownM, requiredReadingUpInvertM, requiredReadingUpTopM, requiredReadingDownInvertM, requiredReadingDownTopM,
         actualElevUpMm, actualElevDownMm, diffUpMm, diffDownMm,
@@ -1744,9 +1784,9 @@
           baseElevMm = design; // = forward側の設計値
           baseDistM = cumDist;
         }
-        // 実測勾配判定用の基準は常に上流側(流入側・段差適用前)。桝内部の段差を次区間に持ち越さない。
-        baseJudgeElevMm = (actualElevUpMm!==null && actualElevUpMm!==undefined) ? actualElevUpMm
-          : ((designUpstreamMm!==null && designUpstreamMm!==undefined) ? designUpstreamMm : design);
+        // 実測勾配判定用の基準は常に上流側(流入側・段差適用前)の「実測標高」。実測が無い側は
+        // null にする＝設計値(designUpstreamMm / design)を代用しない。null の区間は判定不能。
+        baseJudgeElevMm = (actualElevUpMm!==null && actualElevUpMm!==undefined) ? actualElevUpMm : null;
       } else if(actualElevMm!==null){
         baseElevMm = actualElevMm;
         baseDistM = cumDist;
@@ -1755,7 +1795,7 @@
       } else {
         baseElevMm = design;
         baseDistM = cumDist;
-        baseJudgeElevMm = design;
+        baseJudgeElevMm = null; // 実測なし＝次区間の実測勾配は判定不能(設計値で代用しない)
       }
     }
     return results;
@@ -2075,6 +2115,7 @@
         +'<div class="r">目標読み(下流側・管上)<b>'+fmtReadingMm(r.requiredReadingDownTopM)+'</b>mm</div>'
         + actualBlock
         + slopeJudgeBlockHtml(r.slopeJudge)
+        + slopeJudgeUnavailableHtml(r)
         +'</div>';
     }
     return '<div class="result">'
@@ -2087,6 +2128,7 @@
          : '<div class="r">現況高(管下換算)<b>BM'+fmtMm(r.actualElevMm)+'</b>mm'+usedStationHint(r.actualStationLabel, r.actualStationIhMm)+'</div>')
       + (r.diffMm===null ? '' : '<div class="r">目標との差<b>'+fmtSignedDiffMm(r.diffMm)+'</b></div>')
       + slopeJudgeBlockHtml(r.slopeJudge)
+      + slopeJudgeUnavailableHtml(r)
       +'</div>';
   }
 
@@ -2812,10 +2854,10 @@
   };
   // 上のApp.assignActualStation用の選択UI(共通部品)。実測値を読んだ器械が不明な行にだけ表示する。
   function unresolvedStationPickerHtml(kind){
-    if(!state.stations.length) return '<div class="hint" style="color:var(--amber);">⚠ 旧データのため、この実測値を読んだ器械を確認してください（現況高は計算していません）。器械が未設置のため選択できません。</div>';
+    if(!state.stations.length) return '<div class="hint" style="color:var(--amber);">⚠ この実測値を測った器械が未記録です。器械が未設置のため選択できません（現況高・実測勾配は計算しません）。</div>';
     const opts = state.stations.map(s=>'<option value="'+escapeHtml(s.id)+'">'+escapeHtml(s.label)+'（IH'+fmtMm(s.ihMm)+'mm）</option>').join('');
-    return '<div class="hint" style="color:var(--amber);">⚠ 旧データのため、この実測値を読んだ器械を確認してください（現況高は計算していません）。</div>'
-      + '<select onchange="if(this.value){ App.assignActualStation(\''+kind+'\', this.value); }"><option value="">器械を選択…</option>'+opts+'</select>';
+    return '<div class="hint" style="color:var(--amber);">⚠ この実測値を測った器械を選択してください。選ぶまで現況高・実測勾配は計算しません（選択後に自動で保存・再計算します）。</div>'
+      + '<select onchange="if(this.value){ App.assignActualStation(\''+kind+'\', this.value); }"><option value="">この実測値を測った器械を選択…</option>'+opts+'</select>';
   }
   App.toggleStartBoxStep = function(){
     pushHistory();
@@ -3805,10 +3847,10 @@
         masuTypeLabel(mt),
         masuStepDesc(mt),
         (p.measureLoc==='top')?'管上':'管下',
-        r.actualSlopeN===null||r.actualSlopeN===undefined?'':fmtSlopeN(r.actualSlopeN),
+        r.actualSlopeN===null||r.actualSlopeN===undefined?(r.slopeJudgeUnavailable?'判定不能':''):fmtSlopeN(r.actualSlopeN),
         r.slopeJudge?('1/'+r.slopeJudge.limitN):'',
-        slopeJudgeTextOf(r.slopeJudge),
-        slopeJudgeReasonText(r.slopeJudge),
+        r.slopeJudgeUnavailable ? '判定不能' : slopeJudgeTextOf(r.slopeJudge),
+        r.slopeJudgeUnavailable ? '前地点(または始点)の実測標高が未確定' : slopeJudgeReasonText(r.slopeJudge),
         upDesignMm===null||upDesignMm===undefined?'':fmtMm(upDesignMm),
         upReadInvertM===null||upReadInvertM===undefined?'':fmtReadingMm(upReadInvertM),
         upReadTopM===null||upReadTopM===undefined?'':fmtReadingMm(upReadTopM),
@@ -4246,7 +4288,7 @@
       const r = results[i];
       // 目標との差は施工調整用の参考値(合否には使わない)。合否(合格/不合格)は実測勾配のみで判定する。
       const refDiff = r.diffMm===null ? '' : fmtSignedDiffMm(r.diffMm);
-      const slopeText = r.slopeJudge ? ('　勾配判定:'+(r.slopeJudge.pass?'合格':'不合格')+'(限度1/'+r.slopeJudge.limitN+'・実測'+slopeActualDesc(r.slopeJudge)+')') : '';
+      const slopeText = r.slopeJudge ? ('　勾配判定:'+(r.slopeJudge.pass?'合格':'不合格')+'(限度1/'+r.slopeJudge.limitN+'・実測'+slopeActualDesc(r.slopeJudge)+')') : (r.slopeJudgeUnavailable ? '　勾配判定:判定不能(前地点/始点の実測標高が未確定)' : '');
       lines.push(p.label+'　累計'+(cums[i]!==undefined?Math.round(cums[i]*1000):'?')+'mm　設計高BM'+(r.designElevMm===null?'?':fmtMm(r.designElevMm))+'mm　目標読み'+(r.requiredReadingM===null?'?':fmtReadingMm(r.requiredReadingM))+'mm'+(refDiff?('　目標との差:'+refDiff):'')+slopeText);
     });
     return lines.join('\n');
