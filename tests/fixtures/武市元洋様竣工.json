@@ -1,0 +1,475 @@
+{
+  "version": 2,
+  "siteName": "武市元洋様竣工",
+  "currentLineId": "本管",
+  "lines": {
+    "本管": {
+      "project": {
+        "name": "武市元洋様竣工",
+        "date": "2026-09-14",
+        "memo": ""
+      },
+      "pipe": {
+        "type": "rain",
+        "size": 75
+      },
+      "shareEmail": "hy@izumi-i.com",
+      "bmLabel": "BM±0",
+      "stations": [
+        {
+          "id": "id1_1789347224381",
+          "label": "第1器械点",
+          "ihMm": 1130,
+          "basis": {
+            "type": "BM",
+            "readingM": 1.13
+          },
+          "cumulativeCorrectionMm": 0
+        }
+      ],
+      "checks": [
+        {
+          "id": "id2_1789347343322",
+          "label": "設計GL確認1",
+          "offsetMm": 50,
+          "readingM": 1.09,
+          "stationId": "id1_1789347224381"
+        }
+      ],
+      "jobs": {
+        "sewage": {
+          "pipeSize": 100,
+          "slope": {
+            "mode": "100",
+            "customN": 80,
+            "direction": "down",
+            "distanceMode": "stacking"
+          },
+          "start": {
+            "method": "gl",
+            "readingM": null,
+            "directMm": null,
+            "glCheckId": "id2_1789347343322",
+            "glDepthMm": "200",
+            "stationId": null,
+            "measureLoc": "invert",
+            "actualReadingM": 1.285,
+            "actualStationId": "id1_1789347224381",
+            "masuType": {
+              "type": "90L",
+              "customSign": "plus",
+              "customMm": 30,
+              "boxStepEnabled": false,
+              "boxSign": "minus",
+              "boxMm": 10,
+              "upstreamActualReadingM": null,
+              "downstreamActualReadingM": null,
+              "upstreamActualStationId": null,
+              "downstreamActualStationId": null
+            }
+          },
+          "tolerance": 5,
+          "precheck": {
+            "totalLengthM": "",
+            "masuCount": "",
+            "targetMm": ""
+          },
+          "points": [
+            {
+              "id": "id3_1789347457817",
+              "label": "No.2",
+              "distanceInputM": 1.48,
+              "masuType": {
+                "type": "90Y",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": null,
+                "downstreamActualReadingM": null,
+                "upstreamActualStationId": null,
+                "downstreamActualStationId": null
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": 1.309,
+              "actualStationId": "id1_1789347224381",
+              "measureLoc": "invert",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            },
+            {
+              "id": "id4_1789347489912",
+              "label": "No.3",
+              "distanceInputM": 0.655,
+              "masuType": {
+                "type": "90YS",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": null,
+                "downstreamActualReadingM": null,
+                "upstreamActualStationId": null,
+                "downstreamActualStationId": null
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": 1.333,
+              "actualStationId": "id1_1789347224381",
+              "measureLoc": "invert",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            },
+            {
+              "id": "id5_1789347566790",
+              "label": "No.4",
+              "distanceInputM": 2.134,
+              "masuType": {
+                "type": "90Y",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": null,
+                "downstreamActualReadingM": null,
+                "upstreamActualStationId": null,
+                "downstreamActualStationId": null
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": 1.388,
+              "actualStationId": "id1_1789347224381",
+              "measureLoc": "invert",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            },
+            {
+              "id": "id6_1789347620011",
+              "label": "No.5",
+              "distanceInputM": 4.175,
+              "masuType": {
+                "type": "90L",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": null,
+                "downstreamActualReadingM": null,
+                "upstreamActualStationId": null,
+                "downstreamActualStationId": null
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": 1.457,
+              "actualStationId": "id1_1789347224381",
+              "measureLoc": "invert",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            },
+            {
+              "id": "id7_1789347653117",
+              "label": "No.6",
+              "distanceInputM": 2.64,
+              "masuType": {
+                "type": "90L",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": null,
+                "downstreamActualReadingM": null,
+                "upstreamActualStationId": null,
+                "downstreamActualStationId": null
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": 1.49,
+              "actualStationId": "id1_1789347224381",
+              "measureLoc": "invert",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            },
+            {
+              "id": "id8_1789347700000",
+              "label": "No.7",
+              "distanceInputM": 1.115,
+              "masuType": {
+                "type": "90L",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": null,
+                "downstreamActualReadingM": null,
+                "upstreamActualStationId": null,
+                "downstreamActualStationId": null
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": 1.514,
+              "actualStationId": "id1_1789347224381",
+              "measureLoc": "invert",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            },
+            {
+              "id": "id9_1789347723144",
+              "label": "No.8",
+              "distanceInputM": 0.65,
+              "masuType": {
+                "type": "浄化槽流入",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": null,
+                "downstreamActualReadingM": null,
+                "upstreamActualStationId": null,
+                "downstreamActualStationId": null
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": 1.525,
+              "actualStationId": "id1_1789347224381",
+              "measureLoc": "top",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            },
+            {
+              "id": "id10_1789347840701",
+              "label": "No.9",
+              "distanceInputM": 1.33,
+              "masuType": {
+                "type": "浄化槽放流",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": null,
+                "downstreamActualReadingM": null,
+                "upstreamActualStationId": null,
+                "downstreamActualStationId": null
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": 1.578,
+              "actualStationId": "id1_1789347224381",
+              "measureLoc": "invert",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            },
+            {
+              "id": "id1_1789348161554",
+              "label": "No.10",
+              "distanceInputM": 0.5,
+              "masuType": {
+                "type": "90L",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": null,
+                "downstreamActualReadingM": null,
+                "upstreamActualStationId": null,
+                "downstreamActualStationId": null
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": 1.583,
+              "actualStationId": "id1_1789347224381",
+              "measureLoc": "invert",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            },
+            {
+              "id": "id2_1789348204572",
+              "label": "No.11",
+              "distanceInputM": 2.28,
+              "masuType": {
+                "type": "放流",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": null,
+                "downstreamActualReadingM": null,
+                "upstreamActualStationId": null,
+                "downstreamActualStationId": null
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": 1.635,
+              "actualStationId": "id1_1789347224381",
+              "measureLoc": "invert",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            }
+          ]
+        },
+        "rain": {
+          "pipeSize": 75,
+          "slope": {
+            "mode": "100",
+            "customN": 80,
+            "direction": "down",
+            "distanceMode": "stacking"
+          },
+          "start": {
+            "method": "measure",
+            "readingM": 1.3,
+            "directMm": null,
+            "glCheckId": "id2_1789347343322",
+            "glDepthMm": null,
+            "stationId": "id1_1789347224381",
+            "measureLoc": "top",
+            "actualReadingM": 1.3,
+            "actualStationId": "id1_1789347224381",
+            "masuType": {
+              "type": "box",
+              "customSign": "plus",
+              "customMm": 30,
+              "boxStepEnabled": false,
+              "boxSign": "minus",
+              "boxMm": 10,
+              "upstreamActualReadingM": null,
+              "downstreamActualReadingM": null,
+              "upstreamActualStationId": null,
+              "downstreamActualStationId": null
+            }
+          },
+          "tolerance": 5,
+          "precheck": {
+            "totalLengthM": "",
+            "masuCount": "",
+            "targetMm": ""
+          },
+          "points": [
+            {
+              "id": "id3_1789348338510",
+              "label": "No.2",
+              "distanceInputM": 2.52,
+              "masuType": {
+                "type": "box",
+                "customSign": "plus",
+                "customMm": 30,
+                "boxStepEnabled": false,
+                "boxSign": "minus",
+                "boxMm": 10,
+                "upstreamActualReadingM": 1.33,
+                "downstreamActualReadingM": 1.34,
+                "upstreamActualStationId": "id1_1789347224381",
+                "downstreamActualStationId": "id1_1789347224381"
+              },
+              "stationId": "id1_1789347224381",
+              "actualReadingM": null,
+              "actualStationId": null,
+              "measureLoc": "invert",
+              "sizeOverride": {
+                "enabled": false,
+                "mode": "100",
+                "customMm": 110
+              }
+            }
+          ]
+        }
+      },
+      "pipeSize": 100,
+      "slope": {
+        "mode": "100",
+        "customN": 80,
+        "direction": "down",
+        "distanceMode": "stacking"
+      },
+      "start": {
+        "method": "measure",
+        "readingM": 1.3,
+        "directMm": null,
+        "glCheckId": "id2_1789347343322",
+        "glDepthMm": null,
+        "stationId": "id1_1789347224381",
+        "measureLoc": "top",
+        "actualReadingM": 1.3,
+        "actualStationId": "id1_1789347224381",
+        "masuType": {
+          "type": "box",
+          "customSign": "plus",
+          "customMm": 30,
+          "boxStepEnabled": false,
+          "boxSign": "minus",
+          "boxMm": 10,
+          "upstreamActualReadingM": null,
+          "downstreamActualReadingM": null,
+          "upstreamActualStationId": null,
+          "downstreamActualStationId": null
+        }
+      },
+      "tolerance": 5,
+      "precheck": {
+        "totalLengthM": "",
+        "masuCount": "",
+        "targetMm": ""
+      },
+      "points": [
+        {
+          "id": "id3_1789348338510",
+          "label": "No.2",
+          "distanceInputM": 2.52,
+          "masuType": {
+            "type": "box",
+            "customSign": "plus",
+            "customMm": 30,
+            "boxStepEnabled": false,
+            "boxSign": "minus",
+            "boxMm": 10,
+            "upstreamActualReadingM": 1.33,
+            "downstreamActualReadingM": 1.34,
+            "upstreamActualStationId": "id1_1789347224381",
+            "downstreamActualStationId": "id1_1789347224381"
+          },
+          "stationId": "id1_1789347224381",
+          "actualReadingM": null,
+          "actualStationId": null,
+          "measureLoc": "invert",
+          "sizeOverride": {
+            "enabled": false,
+            "mode": "100",
+            "customMm": 110
+          }
+        }
+      ]
+    }
+  },
+  "cloudSiteId": null,
+  "cloudVersionNo": null
+}

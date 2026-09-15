@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.30">
+<link rel="manifest" href="manifest.json?v=1.0.31">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.30">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.30">
-<link rel="icon" href="favicon.ico?v=1.0.30" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.31">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.31">
+<link rel="icon" href="favicon.ico?v=1.0.31" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -146,11 +146,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.30" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.31" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.30</div>
+  <div class="t3">Version 1.0.31</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -391,7 +391,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.30<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.31<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -511,10 +511,10 @@
     };
   }
   function defaultState(){
-    return Object.assign(
+    const s = Object.assign(
       {
         project: { name:'', date: todayStr(), memo:'' },
-        pipe: { type:'sewage', size:100 }, // type: sewage(汚水)/rain(雨水) = 現在アクティブな種別
+        pipe: { type:'sewage', size:100 }, // type: sewage(汚水)/雨水 = 現在アクティブな種別。管サイズの正本はここ(state.pipe.size)。
         shareEmail: 'hy@izumi-i.com',
         bmLabel: 'BM±0', // 現場共通（汚水/雨水で共用）
         stations: [], // 器械設置記録：現場共通（汚水/雨水で共用）。{id,label,ihMm,basis:{type,readingM,tpLabel,tpElevMm}}
@@ -523,6 +523,31 @@
       },
       defaultJobData(100)
     );
+    // defaultJobData()が返す"pipeSize"キーはjobs[種別]スナップショット／restoreJob専用の値で、
+    // フラットstate側の正本は常にstate.pipe.size。ここでObject.assignしたままだと
+    // state.pipeSizeという「使われない直下フィールド」が生まれ、種別・サイズを切り替えても
+    // 100固定のまま保存され続けてstate.pipe.sizeと食い違う（不具合レポート:
+    // 「lines.本管.pipeSize=100 と jobs.rain.pipeSize=75 が矛盾」の原因）。計算では一切参照しない
+    // フィールドなので、フラットstateには残さない(Ver1.0.31)。
+    delete s.pipeSize;
+    return s;
+  }
+  // 旧バージョンが保存した直下pipeSize(=state.pipe.sizeの重複・計算には使われない値)を、
+  // 読込のたびに取り除く一度きりの移行処理。既存JSONの他の値(器械・実測・段差設定等)には一切触れない。
+  // rawLoadedには、Object.assignでマージする前の「読み込んだ生データ」を渡す。
+  // そのrawLoadedが pipe オブジェクトを持たない場合(=multi-type/state.pipe.size導入より前の、
+  // 直下pipeSizeだけがサイズ情報だった旧形式JSON)は、削除する前に値をstate.pipe.sizeへ一度だけ
+  // 移行する。pipeオブジェクトを持つ現行形式のJSON(jobs.<種別>.pipeSizeと食い違っていても、
+  // 常にstate.pipe.sizeの方を正本として扱う設計)では、ここは何もせず単に削除するだけでよい。
+  function stripLegacyPipeSizeField(s, rawLoaded){
+    if(s && Object.prototype.hasOwnProperty.call(s, 'pipeSize')){
+      if(rawLoaded && !rawLoaded.pipe && s.pipeSize){
+        const n = Number(s.pipeSize);
+        if(n>0) s.pipe.size = n;
+      }
+      delete s.pipeSize;
+    }
+    return s;
   }
   let state = defaultState();
 
@@ -592,6 +617,7 @@
     if(!site.lines[id]) site.lines[id] = createLineData(id);
     const data = site.lines[id];
     state = Object.assign(defaultState(), JSON.parse(JSON.stringify(data)));
+    stripLegacyPipeSizeField(state, data);
     migrateLoadedChecks(data);
     site.currentLineId = id;
     persistSite();
@@ -1064,6 +1090,7 @@
       if(!site.currentLineId || !site.lines[site.currentLineId]) site.currentLineId = Object.keys(site.lines)[0] || MAIN_LINE;
       const data = site.lines[site.currentLineId] || defaultState();
       state = Object.assign(defaultState(), JSON.parse(JSON.stringify(data)));
+      stripLegacyPipeSizeField(state, data);
       migrateLoadedChecks(data);
       currentWorkingSiteId = entry.id;
       currentFileBase = null;
@@ -2729,6 +2756,12 @@
   document.getElementById('btnAddPoint').addEventListener('click', ()=>{
     const cur = currentStation();
     pushHistory();
+    // 新規地点の測定位置(管上/管下)は、直前の地点(無ければ始点No.1)の選択を引き継ぐ。現場では
+    // 同じ測定方法(管上 or 管下)で続けて実測することがほとんどのため、地点を追加するたびに
+    // 「管下」へ無言で戻ると、直前まで管上で入力していたユーザーがボタンの選び直しを忘れて
+    // 補正mm分ズレた実測値を保存してしまう(不具合レポート項目1の再発防止)。
+    const lastPoint = state.points.length ? state.points[state.points.length-1] : null;
+    const inheritedMeasureLoc = lastPoint ? (lastPoint.measureLoc || 'invert') : (state.start.measureLoc || 'invert');
     state.points.push({
       id: nextId(),
       label: 'No.'+(state.points.length+2), // 始点をNo.1として扱うため、地点リストはNo.2から始まる
@@ -2737,7 +2770,7 @@
       stationId: cur ? cur.id : null, // 目標読み(設計値)の計算に使う器械＝この行を作った時点の器械
       actualReadingM: null,
       actualStationId: null, // 実測読みを実際に読んだ器械のid。実測読み入力時に別途セットする(BM-787不具合の修正)
-      measureLoc: 'invert',
+      measureLoc: inheritedMeasureLoc,
       sizeOverride: { enabled:false, mode:'100', customMm:110 }
     });
     renderPoints();
@@ -3006,10 +3039,12 @@
           if(!site.currentLineId || !site.lines[site.currentLineId]) site.currentLineId = Object.keys(site.lines)[0] || MAIN_LINE;
           const data = site.lines[site.currentLineId] || defaultState();
           state = Object.assign(defaultState(), JSON.parse(JSON.stringify(data)));
+          stripLegacyPipeSizeField(state, data);
           migrateLoadedChecks(data);
         } else {
           // 旧形式(単体ファイル): 「汚水本管」として現場に取り込む
           state = Object.assign(defaultState(), loaded);
+          stripLegacyPipeSizeField(state, loaded);
           migrateLoadedChecks(loaded);
           ensureSewageSelected();
           site = { version:2, siteName: state.project.name||'', currentLineId:MAIN_LINE, lines:{} };
@@ -3328,6 +3363,7 @@
       if(!site.currentLineId || !site.lines[site.currentLineId]) site.currentLineId = Object.keys(site.lines)[0] || MAIN_LINE;
       const data = site.lines[site.currentLineId] || defaultState();
       state = Object.assign(defaultState(), JSON.parse(JSON.stringify(data)));
+      stripLegacyPipeSizeField(state, data);
       migrateLoadedChecks(data);
       // クラウドから読み込んだ内容も、それまで開いていた「スマホ内作業中現場」とは別物として扱う。
       // ここで切り離しておかないと、次の自動保存で無関係な現場を上書きしてしまう。
