@@ -35,9 +35,13 @@ const TEST_BRIDGE_SNIPPET = `
   globalThis.__TEST_BRIDGE__ = {
     getState: ()=>state,
     setState: (s)=>{ state = s; },
-    defaultState, stripLegacyPipeSizeField, migrateLoadedChecks,
+    getSite: ()=>site,
+    setSite: (s)=>{ site = s; },
+    defaultState, stripLegacyPipeSizeField, migrateLegacyPointLabels, migrateLoadedChecks,
     computeStartRow, computeAllPoints, cumulativeDistances,
     pipeOffsetMm, evaluateSlopeJudge, slopeN, stationById, currentStation,
+    numberingStepSign, computeAutoLabel, missingLabelNumbers, mainLinePointOptions,
+    switchLine, nextBranchId, createLineData, MAIN_LINE,
     renderAll, syncFormFields, PIPE_OFFSETS
   };
 `;

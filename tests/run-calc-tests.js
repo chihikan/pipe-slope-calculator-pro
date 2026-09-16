@@ -751,6 +751,222 @@ test('U. 添付JSONをそのまま読み込むとinvert/-56mmのまま(自動書
   assertTrue(r.slopeJudge.pass === true, '勾配判定が合格に連動');
 });
 
+// =====================================================================
+// 桝No.(図面ラベル)と測定順序の分離（最終統合修正指示 ①〜⑫）
+// =====================================================================
+// ライン(site)関連のテストは、他のテストが残したsite.lines(本管)を巻き込まないよう、
+// 毎回まっさらなsiteへリセットしてから始める。
+function freshSite() {
+  hooks.setSite({ version: 2, siteName: '', currentLineId: hooks.MAIN_LINE, lines: {} });
+}
+function stationsFixture() { return [station('st1', 1130)]; }
+function startFixture(patch) {
+  return Object.assign({
+    method: 'measure', readingM: mm(1300), directMm: null, glCheckId: null, glDepthMm: null,
+    stationId: 'st1', measureLoc: 'invert', actualReadingM: mm(1300), actualStationId: 'st1',
+    masuType: boxMasuType({}), label: 'No.1',
+  }, patch);
+}
+
+test('①. 本管No.1正測定：既定のままNo.2,No.3...と自動採番される(従来どおりの回帰)', () => {
+  const s = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({}), points: [] });
+  hooks.setState(s);
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  const labels = hooks.getState().points.map(p => p.label);
+  assertEqual(JSON.stringify(labels), JSON.stringify(['No.2', 'No.3']), '既定(開始桝No.1・増加方向)では従来どおりNo.2,No.3になること');
+});
+
+test('②. 本管No.3正測定開始：開始桝No.をNo.3にすると、以降No.4,No.5,No.6...と自動採番される', () => {
+  const s = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({ label: 'No.3' }), points: [] });
+  hooks.setState(s);
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  const labels = hooks.getState().points.map(p => p.label);
+  assertEqual(JSON.stringify(labels), JSON.stringify(['No.4', 'No.5', 'No.6']), '開始桝No.3から増加方向でNo.4,5,6になること');
+  // 勾配/始点タブの実ハンドラ(inStartLabelのinputイベント)経由でも同じ結果になることを確認
+  const s2 = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({ label: 'No.1' }), points: [] });
+  hooks.setState(s2);
+  hooks.document.getElementById('inStartLabel')._trigger('input', { target: { value: 'No.3' } });
+  assertEqual(hooks.getState().start.label, 'No.3', '実ハンドラでもstate.start.labelが更新されること');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getState().points[0].label, 'No.4', '実ハンドラ経由でも新規地点がNo.4になること');
+});
+
+test('③. 雨水No.1を飛ばしNo.3から開始：雨水ジョブでも同じ機構で開始桝を自由に選べる', () => {
+  const s = freshState({ pipeType: 'rain', pipeSize: 75, stations: stationsFixture(), start: startFixture({ label: 'No.3', measureLoc: 'top' }), points: [] });
+  hooks.setState(s);
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getState().points[0].label, 'No.4', '雨水ジョブでも開始桝No.3から自動採番できること');
+  assertEqual(hooks.getState().pipe.type, 'rain', '雨水ジョブのまま(汚水に化けていない)こと');
+});
+
+test('④⑤. 逆測定+任意開始桝：開始桝No.8・採番方向=減少で、No.7,No.6,No.5...と自動採番される', () => {
+  const s = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({ label: 'No.8' }), points: [] });
+  s.numbering = { stepSign: -1 };
+  hooks.setState(s);
+  hooks.document.getElementById('numberingStepSeg')._trigger('click', { target: { closest: () => ({ dataset: { v: '-1' } }) } });
+  assertEqual(hooks.getState().numbering.stepSign, -1, '採番方向が減少(-1)に設定されること');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  const labels = hooks.getState().points.map(p => p.label);
+  assertEqual(JSON.stringify(labels), JSON.stringify(['No.7', 'No.6', 'No.5']), '開始桝No.8・減少方向でNo.7,6,5になること');
+});
+
+test('⑥. 枝管の本管接続桝：本管の地点idを参照し、本管側のラベル変更に追従する', () => {
+  freshSite();
+  const mainState = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({}), points: [] });
+  hooks.setState(mainState);
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.2
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.3
+  const mainPoints = hooks.getState().points;
+
+  const branchId = hooks.nextBranchId('汚水');
+  hooks.switchLine(branchId);
+  assertTrue(!!hooks.getState().branchOf, '枝管作成時にbranchOfの既定値が入っていること');
+  assertEqual(hooks.getState().branchOf.lineId, hooks.MAIN_LINE, '既定の接続先ラインは本管であること');
+
+  // 本管No.3(mainPoints[1])に接続していることにする
+  hooks.getState().branchOf = { lineId: hooks.MAIN_LINE, pointId: mainPoints[1].id };
+  let opts = hooks.mainLinePointOptions();
+  assertEqual(opts.find(o => o.id === mainPoints[1].id).label, 'No.3', '接続先の本管地点がNo.3として一覧に出ること');
+
+  // 本管側でラベルを変更 → 枝管側の解決結果も追従すること(表示専用・計算には使わない)
+  hooks.switchLine(hooks.MAIN_LINE);
+  hooks.App.updatePoint(mainPoints[1].id, { label: 'No.3-1' });
+  hooks.switchLine(branchId);
+  opts = hooks.mainLinePointOptions();
+  assertEqual(opts.find(o => o.id === mainPoints[1].id).label, 'No.3-1', '本管側の変更に枝管側の表示が追従すること');
+});
+
+test('⑦. 枝管開始桝選択+自動採番：枝管でも開始桝No.を自由に選び、以降が自動採番される（本管の採番方向とは独立）', () => {
+  freshSite();
+  const mainState = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({}), points: [] });
+  hooks.setState(mainState); // 本管は既定(増加方向)のまま
+  const branchId = hooks.nextBranchId('汚水');
+  hooks.switchLine(branchId);
+  hooks.getState().branchOf = { lineId: hooks.MAIN_LINE, pointId: null };
+  hooks.App.updateStartLabel('No.8');
+  hooks.document.getElementById('numberingStepSeg')._trigger('click', { target: { closest: () => ({ dataset: { v: '-1' } }) } });
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  const labels = hooks.getState().points.map(p => p.label);
+  assertEqual(JSON.stringify(labels), JSON.stringify(['No.7', 'No.6']), '枝管の開始桝No.8・減少方向でNo.7,6になること');
+
+  hooks.switchLine(hooks.MAIN_LINE);
+  assertEqual(hooks.getState().start.label, 'No.1', '本管側の開始桝No.は枝管の変更に影響されないこと');
+  assertEqual((hooks.getState().numbering || {}).stepSign, 1, '本管側の採番方向は枝管の変更に影響されないこと(既定=増加のまま)');
+});
+
+test('⑧⑨. 途中飛ばし→後から戻って測定：末尾追加→▲で挿入すると自動ラベルが位置に合わせて再計算され、そこへ実測値を入力できる', () => {
+  const s = freshState({
+    pipeType: 'rain', pipeSize: 75, stations: stationsFixture(), start: startFixture({ measureLoc: 'top' }),
+    points: [],
+  });
+  hooks.setState(s);
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.2
+  hooks.App.updatePoint(hooks.getState().points[0].id, { distanceInputM: '1000' });
+  hooks.App.updatePoint(hooks.getState().points[0].id, { actualReadingM: '1320' }); // No.2は先に測定済み
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // (見えないので後回しにした桝→末尾に追加、暫定No.3)
+  const skipped = hooks.getState().points[1];
+  assertEqual(skipped.label, 'No.3', '末尾に追加した時点では暫定でNo.3になっていること');
+  hooks.App.updatePoint(skipped.id, { distanceInputM: '1000' });
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 実際に測れた次の桝
+  hooks.App.updatePoint(hooks.getState().points[2].id, { distanceInputM: '1000' });
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), 'No.2,No.3,No.4', '追加した3地点はいったんNo.2,3,4になっていること');
+
+  // 「後から戻って測定」：2番目(No.3)に実測値を入力する（⑨）
+  hooks.App.updatePoint(skipped.id, { actualReadingM: '1330' });
+  const r = hooks.computeAllPoints()[1];
+  assertTrue(r.actualElevMm !== null, '後から入力した実測値が計算に反映されること');
+  assertTrue(!!r.slopeJudge, '後から入力した地点の実測勾配判定が計算されること');
+});
+
+test('⑩. 途中で器械盛替え：桝No.のラベル運用を変えても、盛替え後の器械(actualStationId)ごとの計算結果は不変', () => {
+  const st = [station('st1', 1130), station('st2', 1500)];
+  const s = freshState({
+    pipeType: 'sewage', pipeSize: 100, stations: st, start: startFixture({ label: 'No.5' }),
+    points: [{
+      id: 'p1', label: 'No.6', labelAuto: true, distanceInputM: mm(1000),
+      masuType: simpleMasuType('90L', {}), stationId: 'st1',
+      actualReadingM: mm(1400), actualStationId: 'st2', // 盛替え後の器械(st2)で実測
+      measureLoc: 'invert', sizeOverride: { enabled: false, mode: '100', customMm: 110 },
+    }],
+  });
+  hooks.setState(s);
+  const r = hooks.computeAllPoints()[0];
+  approxEqual(r.actualElevMm, 1500 - 1400, 0.01, '盛替え後の器械(st2)のihMmを使って正しく計算されること(桝No.運用とは独立)');
+  assertEqual(hooks.getState().points[0].actualStationId, 'st2', '実測に使った器械idがラベル運用の変更で書き換わらないこと');
+});
+
+test('⑪. 保存→終了→再読込→続き：開始桝No./採番方向/labelAuto/本管接続桝がJSON往復で完全一致する', () => {
+  freshSite();
+  const mainState = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({ label: 'No.3' }), points: [] });
+  mainState.numbering = { stepSign: -1 };
+  hooks.setState(mainState);
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  hooks.App.updatePoint(hooks.getState().points[0].id, { label: 'No.9' }); // 手動固定
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 自動採番のまま
+
+  const branchId = hooks.nextBranchId('汚水');
+  hooks.switchLine(branchId);
+  hooks.getState().branchOf = { lineId: hooks.MAIN_LINE, pointId: 'p-dummy' };
+  hooks.switchLine(hooks.MAIN_LINE);
+
+  const roundTripped = JSON.parse(JSON.stringify(hooks.getState()));
+  assertEqual(roundTripped.start.label, 'No.3', '開始桝No.が復元されること');
+  assertEqual(roundTripped.numbering.stepSign, -1, '採番方向が復元されること');
+  assertEqual(roundTripped.points[0].label, 'No.9', '手動固定したラベルが復元されること');
+  assertEqual(roundTripped.points[0].labelAuto, false, '手動固定フラグ(labelAuto:false)が復元されること');
+  assertEqual(roundTripped.points[1].labelAuto, true, '自動採番フラグ(labelAuto:true)が復元されること');
+
+  const roundTrippedSite = JSON.parse(JSON.stringify(hooks.getSite()));
+  const restoredBranch = roundTrippedSite.lines[branchId];
+  assertTrue(!!restoredBranch, '枝管ラインが復元されること');
+  assertEqual(restoredBranch.branchOf.pointId, 'p-dummy', '枝管の本管接続桝(id参照)が復元されること');
+
+  // 復元後も正しく計算できること(=続きから測定できる)
+  hooks.setState(Object.assign(hooks.defaultState(), JSON.parse(JSON.stringify(roundTripped))));
+  const startRow = hooks.computeStartRow();
+  assertTrue(startRow.designElevMm !== null, '復元後も始点の設計高が計算できること');
+});
+
+test('⑫-a. 旧JSON(labelAuto/numbering/branchOf無し)を読み込んでも、既存の計算結果・ラベル見た目が変わらない', () => {
+  // labelAuto等が一切無い旧形式のポイント配列(旧renumberPointsの基準="No."+(index+2)に一致する状態)
+  const legacyLine = {
+    project: { name: 'X', date: '2026-01-01', memo: '' },
+    pipe: { type: 'sewage', size: 100 },
+    shareEmail: '', bmLabel: 'BM±0',
+    stations: stationsFixture(), checks: [], jobs: {},
+    slope: { mode: '100', customN: 80, direction: 'down', distanceMode: 'stacking' },
+    start: { method: 'measure', readingM: mm(1300), directMm: null, glCheckId: null, glDepthMm: null, stationId: 'st1', measureLoc: 'invert', actualReadingM: mm(1300), actualStationId: 'st1', masuType: boxMasuType({}) }, // labelフィールド無し(旧データ)
+    tolerance: 5, precheck: { totalLengthM: '', masuCount: '', targetMm: '' },
+    points: [
+      { id: 'p1', label: 'No.2', distanceInputM: mm(1000), masuType: simpleMasuType('90L', {}), stationId: 'st1', actualReadingM: mm(1400), actualStationId: 'st1', measureLoc: 'invert', sizeOverride: { enabled: false, mode: '100', customMm: 110 } }, // labelAuto無し
+      { id: 'p2', label: 'カスタム名前', distanceInputM: mm(500), masuType: simpleMasuType('90L', {}), stationId: 'st1', actualReadingM: null, actualStationId: null, measureLoc: 'invert', sizeOverride: { enabled: false, mode: '100', customMm: 110 } }, // 旧仕様でも手動扱いだった名前
+    ],
+  };
+  const restored = Object.assign(hooks.defaultState(), JSON.parse(JSON.stringify(legacyLine)));
+  hooks.stripLegacyPipeSizeField(restored, legacyLine);
+  hooks.migrateLegacyPointLabels(restored.points);
+  assertEqual(restored.points[0].labelAuto, true, '旧式の"No."+(位置+2)と一致するラベルはlabelAuto:trueへ移行されること');
+  assertEqual(restored.points[1].labelAuto, false, '旧式のカスタム名前はlabelAuto:falseへ移行され、上書きされないこと');
+  assertEqual(restored.start.label, undefined, 'labelが元々無い場合はstate.start.labelを勝手に書き込まないこと(読み出し側で\'No.1\'にフォールバック)');
+
+  hooks.setState(restored);
+  // 並べ替えても、旧仕様どおり自動地点だけ詰め直され、カスタム名前はそのまま
+  hooks.App.movePoint('p2', -1);
+  const labels = hooks.getState().points.map(p => p.label);
+  // 旧renumberPoints()も"No."+(配列位置+2)で位置ベースに詰め直す仕様だったため、
+  // 並べ替え後は自動地点(No.2)が新しい位置(index1)に応じてNo.3へ再計算される(旧仕様と同じ挙動)。
+  assertEqual(JSON.stringify(labels), JSON.stringify(['カスタム名前', 'No.3']), '移行後も旧renumberPoints()と同じ見た目の挙動になること');
+});
+
+// ⑫-b(直前バージョンとの計算結果比較)は、tests/以下ではなくスクラッチ領域の
+// 一回限りの比較スクリプトで別途実施し、結果を報告する(前回の統合修正と同じ手順)。
+
 // ---------- 結果出力 ----------
 let passCount = 0, failCount = 0;
 for (const r of results) {
