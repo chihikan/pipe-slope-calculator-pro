@@ -68,6 +68,10 @@ function createSandbox() {
   // 同じidへの2回目以降のgetElementById()は同じダミー要素を返す(実DOMと同様)。
   // これにより、初期化時にaddEventListenerで登録したハンドラをテストから_trigger()で起動できる。
   const elementsById = new Map();
+  // documentレベルのリスナー(index.htmlのdocument.addEventListener('touchstart', ..., {capture:true})等)。
+  // captureフェーズかどうかは区別せず1つの配列にまとめて格納する(このスタブでは発火順序の厳密な
+  // capture/bubble再現までは行わず、documentに登録されたハンドラを_triggerで直接起動できれば十分)。
+  const documentListeners = {};
   const documentStub = {
     getElementById(id) {
       if (!elementsById.has(id)) elementsById.set(id, makeDummyElement());
@@ -75,8 +79,15 @@ function createSandbox() {
     },
     querySelector() { return null; },
     querySelectorAll() { return []; },
-    addEventListener() {},
-    removeEventListener() {},
+    addEventListener(type, handler) { (documentListeners[type] = documentListeners[type] || []).push(handler); },
+    removeEventListener(type, handler) {
+      if (!documentListeners[type]) return;
+      const i = documentListeners[type].indexOf(handler);
+      if (i >= 0) documentListeners[type].splice(i, 1);
+    },
+    // テスト用: index.html内でdocument.addEventListener(...)された処理(ライン一覧モーダルの
+    // クリック委譲、下部メニューのグローバルなドラッグ検出等)を直接起動する。
+    _trigger(type, evt) { (documentListeners[type] || []).forEach(h => h(evt || { target: documentStub, preventDefault() {} })); },
     createElement() { return makeDummyElement(); },
     activeElement: makeDummyElement(),
     body: makeDummyElement(),
@@ -100,6 +111,7 @@ function createSandbox() {
     addEventListener() {},
     removeEventListener() {},
     print() {},
+    scrollTo() {},
     atob: typeof atob !== 'undefined' ? atob : (s) => Buffer.from(s, 'base64').toString('binary'),
     btoa: typeof btoa !== 'undefined' ? btoa : (s) => Buffer.from(s, 'binary').toString('base64'),
   };

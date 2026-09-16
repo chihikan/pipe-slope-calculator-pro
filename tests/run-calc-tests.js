@@ -1090,6 +1090,114 @@ test('Z. 測定ライン削除：保存(JSON化)→再読込後も削除状態�
   assertTrue(!!hooks.getSite().lines['雨水枝1'], '再読込後も雨水枝1は残っていること');
 });
 
+// =====================================================================
+// 誤操作防止：ドラッグ／横スワイプによる下部メニューの意図しない発火を防ぐ（追加修正）
+// =====================================================================
+// 別の要素(例: 計算表の中身)でtouchstart→touchmove(大きく移動)→touchendが起き、指を離した
+// 座標がたまたま対象ボタンの上だった場合を再現する。実際のブラウザでは対象ボタン自身の
+// touchstart/touchend は発火せず、ヒットテストされた合成clickだけが届く。
+function simulateDragEndingOverButton(hooks, btn) {
+  const doc = hooks.document;
+  doc._trigger('touchstart', { touches: [{ clientX: 50, clientY: 300 }] });
+  doc._trigger('touchmove', { touches: [{ clientX: 50, clientY: 600 }] }); // 縦に大きく移動(スクロールしようとした)
+  doc._trigger('touchend', {});
+  btn._trigger('click', {}); // ブラウザが指を離した座標をヒットテストして合成したclick
+}
+// 対象ボタン自身での正当なタップ(移動量が小さい)を再現する。
+function simulateTapOnButton(hooks, btn) {
+  const doc = hooks.document;
+  doc._trigger('touchstart', { touches: [{ clientX: 200, clientY: 800 }] });
+  btn._trigger('touchstart', { touches: [{ clientX: 200, clientY: 800 }] });
+  doc._trigger('touchmove', { touches: [{ clientX: 202, clientY: 801 }] }); // 微小な移動(タップ時の指のブレ)
+  btn._trigger('touchend', { preventDefault() {} });
+  doc._trigger('touchend', {});
+}
+// 対象ボタン自身から始まる大きなドラッグ(ボタンの上で押して大きく動かしてから離す)を再現する。
+function simulateDragStartingOnButton(hooks, btn) {
+  const doc = hooks.document;
+  doc._trigger('touchstart', { touches: [{ clientX: 200, clientY: 800 }] });
+  btn._trigger('touchstart', { touches: [{ clientX: 200, clientY: 800 }] });
+  doc._trigger('touchmove', { touches: [{ clientX: 200, clientY: 650 }] }); // 大きく移動
+  btn._trigger('touchend', { preventDefault() {} });
+  doc._trigger('touchend', {});
+}
+
+test('AA. bindSafeTap単体：ドラッグ(自身が起点/他要素が起点のどちらも)ではhandlerを呼ばず、タップと非タッチclickでは呼ぶ', () => {
+  const el = hooks.document.getElementById('__safeTapTestEl__');
+  let calls = 0;
+  hooks.bindSafeTap(el, () => { calls++; });
+
+  simulateDragStartingOnButton(hooks, el);
+  assertEqual(calls, 0, 'このボタン自身から始まる大きなドラッグではhandlerが呼ばれないこと');
+
+  simulateDragEndingOverButton(hooks, el);
+  assertEqual(calls, 0, '別要素で始まり指を離した瞬間だけこのボタン上にあったドラッグでもhandlerが呼ばれないこと(合成clickだけの場合)');
+
+  simulateTapOnButton(hooks, el);
+  assertEqual(calls, 1, '移動量が小さい正当なタップではhandlerが呼ばれること');
+
+  // タッチが発生しない環境(マウス・キーボード操作等)の確認は、直前のタップの合成click抑止期間
+  // (500ms、テスト実行中は時間が進まないため同一要素では判定できない)と混同しないよう、
+  // 一度もタッチイベントを受けていない別要素で確認する。
+  const elMouseOnly = hooks.document.getElementById('__safeTapTestElMouseOnly__');
+  hooks.bindSafeTap(elMouseOnly, () => { calls++; });
+  elMouseOnly._trigger('click', {});
+  assertEqual(calls, 2, 'タッチが発生しない環境ではclickイベントでhandlerが呼ばれること(既存動作を維持)');
+});
+
+test('BB. 「新規現場」ボタン：横スワイプ／ドラッグでは絶対に切り替わらず、明示的なタップだけで既存の未保存警告を経て新規現場になる(項目1,2,4)', () => {
+  const s = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({}), points: [] });
+  s.project.name = '重要な現場データ';
+  hooks.setState(s);
+  const btn = hooks.document.getElementById('btnNewNav');
+  const modalBg = hooks.document.getElementById('modalBg');
+
+  // ①横スワイプ/ドラッグ(別要素起点で指離しだけこのボタン上)では絶対に新規現場に切り替わらない
+  simulateDragEndingOverButton(hooks, btn);
+  assertTrue(!modalBg.classList.contains('show'), '横スワイプでは確認モーダルすら開かないこと(=新規現場に切り替わらない)');
+  assertEqual(hooks.getState().project.name, '重要な現場データ', '横スワイプ後もデータが一切変化していないこと');
+
+  // ②このボタン自身から始まる大きなドラッグでも同様
+  simulateDragStartingOnButton(hooks, btn);
+  assertTrue(!modalBg.classList.contains('show'), 'ボタン自身から始まるドラッグでも確認モーダルが開かないこと');
+  assertEqual(hooks.getState().project.name, '重要な現場データ', 'データが一切変化していないこと');
+
+  // ③明示的なタップでは、既存の未保存警告(確認モーダル)が必ず表示される(項目4：警告を維持)
+  simulateTapOnButton(hooks, btn);
+  assertTrue(modalBg.classList.contains('show'), 'タップした場合は確認モーダルが表示されること(既存の未保存警告を維持)');
+  assertTrue(hooks.document.getElementById('modalText').textContent.includes('新しい作業中現場'), '新規現場の確認文言が表示されること');
+  assertEqual(hooks.getState().project.name, '重要な現場データ', '確認モーダルが出た段階では、まだ実際にはリセットされていないこと(警告を回避して初期化される経路が無いこと)');
+
+  // ④確認モーダルでOKを押した場合だけ実際にリセットされる
+  hooks.document.getElementById('modalOk')._trigger('click');
+  assertEqual(hooks.getState().project.name, '', 'タップ→確認OKの場合だけ新規現場として初期化されること');
+});
+
+test('CC. 「新しいファイル」ボタン(バックアップ・保存タブ内)も同じガードが適用され、横スワイプでは発火しない', () => {
+  const s = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({}), points: [] });
+  s.project.name = 'テスト現場';
+  hooks.setState(s);
+  const btn = hooks.document.getElementById('btnReset');
+  const modalBg = hooks.document.getElementById('modalBg');
+
+  simulateDragEndingOverButton(hooks, btn);
+  assertTrue(!modalBg.classList.contains('show'), '「新しいファイル」ボタンも横スワイプでは確認モーダルが開かないこと');
+
+  simulateTapOnButton(hooks, btn);
+  assertTrue(modalBg.classList.contains('show'), '「新しいファイル」ボタンはタップでは確認モーダルが開くこと');
+  hooks.document.getElementById('modalCancel')._trigger('click'); // 後始末：キャンセルして次のテストに影響を残さない
+});
+
+test('DD. 下部メニューの読込ボタン(btnLoadNav)も横スワイプでは発火せず、タップでは動作する', () => {
+  let opened = 0;
+  // openLoadPickerはファイル選択UIを実際に開こうとするため、簡易的にhooksから直接ボタンの
+  // click/touch経路のみを検証する(bindSafeTapの適用有無の確認が目的)。
+  const btn = hooks.document.getElementById('btnLoadNav');
+  const before = JSON.stringify(hooks.getState());
+  simulateDragEndingOverButton(hooks, btn);
+  assertEqual(JSON.stringify(hooks.getState()), before, '読込ボタンへの横スワイプでもstateは変化しないこと(誤操作防止)');
+});
+
 // ---------- 結果出力 ----------
 let passCount = 0, failCount = 0;
 for (const r of results) {

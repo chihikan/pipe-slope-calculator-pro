@@ -44,6 +44,7 @@ const TEST_BRIDGE_SNIPPET = `
     branchOfToValue, valueToBranchOf,
     switchLine, nextBranchId, createLineData, MAIN_LINE, lineIdList,
     confirmDeleteLine, deleteLine, showLineModal,
+    bindSafeTap, startNewFile,
     renderAll, syncFormFields, PIPE_OFFSETS
   };
 `;

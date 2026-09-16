@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.33">
+<link rel="manifest" href="manifest.json?v=1.0.34">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.33">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.33">
-<link rel="icon" href="favicon.ico?v=1.0.33" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.34">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.34">
+<link rel="icon" href="favicon.ico?v=1.0.34" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -28,7 +28,7 @@
     -webkit-tap-highlight-color:transparent;}
   body{padding-bottom:76px;}
   /* 上部ヘッダー：現場での入力・計算表示領域を広く取るため、縦積みブロックではなく
-     折返しチップ2行(hdrChips)に圧縮する（Ver1.0.33）。基準点照合OK/NG等の警告表示
+     折返しチップ2行(hdrChips)に圧縮する（Ver1.0.34）。基準点照合OK/NG等の警告表示
      (.hint/#globalValidationBanner)はヘッダーとは別物のためここでは触れない。 */
   header.top{position:sticky;top:0;z-index:20;background:var(--blue);color:#fff;
     padding:7px 12px;box-shadow:0 2px 6px rgba(0,0,0,.15);transition:background .15s;}
@@ -153,11 +153,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.33" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.34" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.33</div>
+  <div class="t3">Version 1.0.34</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -414,7 +414,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.33<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.34<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -527,14 +527,14 @@
       // stationId: 始点高さの「reading方式」入力(designを決める読み)を読んだ器械。actualReadingM/actualStationId
       // (BM-787不具合の修正、Ver1.0.25で追加)とは別物＝両者は別のタイミングで別の器械で読まれうるため、
       // 互いのIDを絶対に流用しない(computeStartRow参照)。
-      // label: 図面上の桝No.（表示・ラベリング専用。計算には一切使わない。Ver1.0.33で追加）。
+      // label: 図面上の桝No.（表示・ラベリング専用。計算には一切使わない。Ver1.0.34で追加）。
       // 既定"No.1"だが、器械の視認性等で現場ではNo.1以外から測定を始めることがあるため、
       // 「勾配/始点」タブ・計算表タブどちらからでも変更できる(state.numbering参照)。
       start: { method:'measure', readingM:null, directMm:null, glCheckId:null, glDepthMm:null, stationId:null, measureLoc:'invert', actualReadingM:null, actualStationId:null, masuType:defaultMasuType(), label:'No.1' }, // glCheckId/glDepthMm:「設計GL－mmで入力」方式（始点高さ＝器械タブの設計GL照合で選んだGL－深さ）。actualReadingM:始点の実測読み(非分割の場合)。actualStationId:その実測読みを実際に読んだ器械のid。masuType:始点自体の桝種類（段差桝の場合は上流/下流に分割される）
       tolerance: 5,
       precheck: { totalLengthM:'', masuCount:'', targetMm:'' },
       points: [], // {id,label,labelAuto,distanceInputM,masuType,stationId,actualReadingM,measureLoc}
-      // numbering: 桝No.の自動採番設定(表示専用、計算には使わない。Ver1.0.33で追加)。
+      // numbering: 桝No.の自動採番設定(表示専用、計算には使わない。Ver1.0.34で追加)。
       // stepSign: +1=始点から番号が増える方向へ自動採番、-1=減る方向へ自動採番。
       numbering: { stepSign: 1 }
     };
@@ -549,7 +549,7 @@
         stations: [], // 器械設置記録：現場共通（汚水/雨水で共用）。{id,label,ihMm,basis:{type,readingM,tpLabel,tpElevMm}}
         checks: [], // 設計GL照合：現場共通（汚水/雨水で共用）。{id,label,offsetMm,readingM,stationId,measureLoc}
         jobs: {}, // 非アクティブ側の種別データの退避場所（切替時に使用）
-        // branchOf: 枝管ラインが接続する本管側の地点への参照(表示専用、計算には使わない。Ver1.0.33で追加)。
+        // branchOf: 枝管ラインが接続する本管側の地点への参照(表示専用、計算には使わない。Ver1.0.34で追加)。
         // 本管ラインでは常にnull。{lineId:本管側のsite.lines key, pointId:本管の地点id(nullなら本管の始点)}。
         // 表示のたびにsite.lines[lineId]を引き直すため、本管側でラベルを変更・並べ替えても追従する。
         branchOf: null
@@ -561,7 +561,7 @@
     // state.pipeSizeという「使われない直下フィールド」が生まれ、種別・サイズを切り替えても
     // 100固定のまま保存され続けてstate.pipe.sizeと食い違う（不具合レポート:
     // 「lines.本管.pipeSize=100 と jobs.rain.pipeSize=75 が矛盾」の原因）。計算では一切参照しない
-    // フィールドなので、フラットstateには残さない(Ver1.0.33)。
+    // フィールドなので、フラットstateには残さない(Ver1.0.34)。
     delete s.pipeSize;
     return s;
   }
@@ -582,7 +582,7 @@
     }
     return s;
   }
-  // ---------- 桝No.(図面ラベル)と測定順序の分離(Ver1.0.33) ----------
+  // ---------- 桝No.(図面ラベル)と測定順序の分離(Ver1.0.34) ----------
   // ラベルは表示・整理専用の文字列で、計算(距離・高さ・勾配判定)には一切使わない。
   // "No.<数字>" 形式だけ自動採番の対象にする。それ以外(利用者が自由に付けた名前等)は常に手動固定として扱う。
   function parseLabelNumber(label){
@@ -659,13 +659,13 @@
     nu.project = JSON.parse(JSON.stringify(state.project));
     nu.tolerance = state.tolerance;
     if(lineIsRain(id)){ nu.pipe = { type:'rain', size:75 }; } // 汚水枝・本管は既定(汚水)のまま
-    // 接続先桝No.(branchOf)は既定で「未入力」(null)のままにする(Ver1.0.33)。現場では下流側へ
+    // 接続先桝No.(branchOf)は既定で「未入力」(null)のままにする(Ver1.0.34)。現場では下流側へ
     // 測定するとき次の接続先がまだ分からないことがあるため、未入力の状態でも測定を続けられる
     // ようにする(計算には一切使わない表示専用情報のため、未入力でも支障はない)。
     return nu;
   }
   // 「接続先桝No.」ドロップダウンの候補一覧を返す({lineId,pointId,label})。
-  // 本管に限らず、他の全ての測定ライン(自分自身を除く)の「始点+各地点」を対象にする(Ver1.0.33)。
+  // 本管に限らず、他の全ての測定ライン(自分自身を除く)の「始点+各地点」を対象にする(Ver1.0.34)。
   // 現場では枝管が本管ではなく既設の別の枝管から分岐することもあるため。表示のたびに呼び直すことで、
   // 接続先ライン側でラベルを変更・並べ替えても表示が追従する(計算には一切使わない)。
   function connectionCandidateOptions(){
@@ -680,7 +680,7 @@
     return opts;
   }
   // <select>の値文字列とstate.branchOfの相互変換。pointId:nullは「その接続先ラインの始点」を指すため、
-  // 空文字列(""全体)は別に「未入力(まだ決めていない)」専用の意味として予約する(Ver1.0.33)。
+  // 空文字列(""全体)は別に「未入力(まだ決めていない)」専用の意味として予約する(Ver1.0.34)。
   function branchOfToValue(bo){
     return (bo && bo.lineId) ? (bo.lineId+'::'+(bo.pointId||'')) : '';
   }
@@ -756,7 +756,7 @@
     else if(b.dataset.add){ bg.classList.remove('show'); switchLine(nextBranchId(b.dataset.add)); }
     else if(b.dataset.close){ bg.classList.remove('show'); }
   });
-  // ---------- 測定ラインの削除(Ver1.0.33) ----------
+  // ---------- 測定ラインの削除(Ver1.0.34) ----------
   // 本管は削除不可。削除対象は枝管のみで、確認モーダルでの明示的な同意を必須にする。
   function confirmDeleteLine(id){
     if(id===MAIN_LINE) return; // 二重ガード(呼び出し元でも本管には削除ボタンを出していない)
@@ -1374,7 +1374,7 @@
     return chain;
   }
 
-  // ---------- 桝No.(図面ラベル)自動採番(Ver1.0.33) ----------
+  // ---------- 桝No.(図面ラベル)自動採番(Ver1.0.34) ----------
   // ここから下は表示・整理専用。距離・高さ・勾配判定などの計算には一切使わない。
   function numberingStepSign(){
     return (state.numbering && state.numbering.stepSign===-1) ? -1 : 1;
@@ -2102,7 +2102,7 @@
       segPoints.style.display = '';
       fixedEl.style.display = 'none';
     }
-    // 接続先桝No.（枝管のときだけ表示。計算には使わない表示専用情報、項目6対応。Ver1.0.33で
+    // 接続先桝No.（枝管のときだけ表示。計算には使わない表示専用情報、項目6対応。Ver1.0.34で
     // 本管以外の他の枝管も候補にし、「未入力」を先頭に追加した）
     const branchOfWrap = document.getElementById('branchOfWrap');
     if(isBranch){
@@ -2691,8 +2691,72 @@
     }
     goToTab(targetTabId);
   }
+  // ---------- 誤操作防止：ドラッグ／横スワイプによる下部メニューの意図しない発火を防ぐ(Ver1.0.34) ----------
+  // 不具合: スマホで画面をドラッグ／横スワイプした際、指を離した位置に下部メニューのボタン
+  // (特に「新規現場」)があると、そこでclickが発火し意図せず切り替わってしまうことがあった。
+  //
+  // 原因: タッチイベント(touchstart/touchmove/touchend)は指を置いた要素をターゲットとして
+  // 追従するが、ブラウザが合成する互換clickイベントは touchend の「指を離した座標」を
+  // 改めてヒットテストして、その場にある要素(下部メニューの固定フッター等)に発火する。
+  // つまりドラッグの開始位置が下部メニューのボタンの上でなくても(計算表を上下スクロール
+  // しようとしただけでも)、指を離した瞬間にたまたま固定フッターの上にあれば、そのボタンの
+  // clickが発火してしまう。この合成click抑止はブラウザが「その場でタッチ対象がスクロール
+  // 可能だったか」等から自動判定するが、この判定基準は機種・OSに依存し一定しないため、
+  // 一部の実機(Galaxy/DIGNO Tab等)で抑止されずclickが発火していたと考えられる。
+  //
+  // 対策: document全体でtouchstart/touchmoveをcaptureフェーズで監視し、1回のタッチ操作中に
+  // 指が閾値(12px)を超えて動いたかどうかを、ドラッグの開始位置に関わらず記録する
+  // (グローバルなドラッグ検出フラグ)。下部メニュー等の保護対象ボタンは、touchendの時点で
+  // このフラグを確認し、ドラッグが検出されていればpreventDefault()するだけで何もしない
+  // (合成clickの発火自体を止める)。移動が小さい「タップ」の場合だけ即時に実行する。
+  // マウス/キーボード操作(タッチが発生しない環境)は通常のclickイベントのまま動作する。
+  //
+  // 入力欄のスクロール・計算表の上下スクロール・プルダウン・▲▼操作・測定ライン切替ボタンには
+  // 一切触れていない(bindSafeTapを付けた下部メニュー6ボタン＋「新しいファイル」ボタン以外の
+  // 挙動・イベント登録は変更していない)ため、従来どおり動作する。
+  const SAFE_TAP_MOVE_THRESHOLD = 12; // px。これを超えたらドラッグ扱い(タップとして発火しない)
+  let safeTapGlobalActive = false, safeTapGlobalDragged = false, safeTapGlobalSX = 0, safeTapGlobalSY = 0;
+  document.addEventListener('touchstart', e=>{
+    if(!e.touches || e.touches.length!==1){ safeTapGlobalActive = false; return; } // マルチタッチ(ピンチ等)は対象外
+    safeTapGlobalSX = e.touches[0].clientX; safeTapGlobalSY = e.touches[0].clientY;
+    safeTapGlobalActive = true; safeTapGlobalDragged = false;
+  }, { passive:true, capture:true });
+  document.addEventListener('touchmove', e=>{
+    if(!safeTapGlobalActive || !e.touches || !e.touches.length) return;
+    const dx = e.touches[0].clientX - safeTapGlobalSX, dy = e.touches[0].clientY - safeTapGlobalSY;
+    if(Math.abs(dx) > SAFE_TAP_MOVE_THRESHOLD || Math.abs(dy) > SAFE_TAP_MOVE_THRESHOLD) safeTapGlobalDragged = true;
+    // ここではpreventDefault()しない＝ページのスクロール自体は従来どおり妨げない。
+  }, { passive:true, capture:true });
+  document.addEventListener('touchend', ()=>{ safeTapGlobalActive = false; }, { capture:true });
+  document.addEventListener('touchcancel', ()=>{ safeTapGlobalActive = false; safeTapGlobalDragged = false; }, { capture:true });
+  function bindSafeTap(el, handler){
+    if(!el) return;
+    // 直前のtouchendが合成clickを止めきれなかった場合の保険として、一定時間だけclickを
+    // 無視する(「次のclickを1回だけ無視」ではなく時間で区切ることで、タッチの無い環境での
+    // 通常のclick操作を永続的に無効化してしまう不具合を避ける)。
+    let suppressClickUntil = 0;
+    const SUPPRESS_MS = 500;
+    // ドラッグがこのボタン自身の上で始まった場合：touchstart/touchmove/touchendはこのボタンを
+    // ターゲットとして発火し続けるため、ここでドラッグを検出してpreventDefault()すれば
+    // 合成clickの発火自体を止められる。
+    el.addEventListener('touchend', e=>{
+      suppressClickUntil = Date.now() + SUPPRESS_MS;
+      if(safeTapGlobalDragged){ e.preventDefault(); return; } // このタッチ操作中にどこかで大きく動いた→ドラッグ扱い(何もしない)
+      e.preventDefault(); // タップ確定：ここで実行し、直後の合成clickは無視させる
+      handler(e);
+    });
+    el.addEventListener('click', e=>{
+      if(Date.now() < suppressClickUntil) return; // 直前のtouchendで既に処理済み(合成click抑止の保険)
+      // ドラッグが別の要素(計算表の中身等)で始まり、指を離した瞬間だけこのボタンの上にあった場合：
+      // touchstart/touchend はこのボタンでは発火しないため、ブラウザが指を離した座標を改めて
+      // ヒットテストして合成するclickだけがここに届く。その場合もグローバルなドラッグ検出
+      // フラグを見て、ドラッグ後の指離しなら何もしない(本不具合の本質的な原因への対策)。
+      if(safeTapGlobalDragged) return;
+      handler(e); // マウス/キーボード操作等、タッチが発生しない環境、または正当なタップ
+    });
+  }
   document.querySelectorAll('.tab-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ attemptGoToTab(btn.dataset.tab); });
+    bindSafeTap(btn, ()=>attemptGoToTab(btn.dataset.tab));
   });
   // 未入力エラー表示中に該当欄へ入力し始めたら、その場でエラー表示を解除する
   document.addEventListener('input', e=>{
@@ -2880,7 +2944,7 @@
     const b = e.target.closest('button'); if(!b) return;
     handleDirectionTap(b.dataset.v);
   });
-  // 開始桝No.（図面ラベル。計算には使わない表示専用、Ver1.0.33）。変更のたびに自動採番(labelAuto)の
+  // 開始桝No.（図面ラベル。計算には使わない表示専用、Ver1.0.34）。変更のたびに自動採番(labelAuto)の
   // 地点ラベルを詰め直す。renderSlopeTab()はこの欄の.valueを再設定しない(カーソル位置を保つため)。
   document.getElementById('inStartLabel').addEventListener('input', e=>{
     state.start.label = e.target.value;
@@ -2960,7 +3024,7 @@
     const inheritedMeasureLoc = lastPoint ? (lastPoint.measureLoc || 'invert') : (state.start.measureLoc || 'invert');
     state.points.push({
       id: nextId(),
-      // ラベルは開始桝No.(state.start.label)＋採番方向から自動計算する（桝No.と測定順序の分離、Ver1.0.33）。
+      // ラベルは開始桝No.(state.start.label)＋採番方向から自動計算する（桝No.と測定順序の分離、Ver1.0.34）。
       // labelAuto:true の間は、並べ替え・削除・開始桝No.や採番方向の変更のたびに再計算される。
       // ラベル欄を直接編集した時点でlabelAutoはfalseになり、以後は自動更新されなくなる(手動固定)。
       label: computeAutoLabel(state.points.length),
@@ -3128,7 +3192,7 @@
     renderHeader();
   };
   // 削除・並べ替え・開始桝No.変更・採番方向変更の後、自動採番(labelAuto:true)の地点だけラベルを
-  // 開始桝No.＋採番方向から詰め直す(Ver1.0.33)。ラベル欄を直接編集した地点(labelAuto:false)は
+  // 開始桝No.＋採番方向から詰め直す(Ver1.0.34)。ラベル欄を直接編集した地点(labelAuto:false)は
   // 手動固定として、ここでは一切変更しない(項目8「途中の桝を飛ばせるようにする」対応)。
   function renumberPoints(){
     state.points.forEach((p,i)=>{
@@ -3229,8 +3293,9 @@
     renderHeader();
   });
   document.getElementById('btnLoad').addEventListener('click', openLoadPicker);
-  // 下部タスクバーの読込ボタン（どのタブからでもワンタップで読込できる）
-  document.getElementById('btnLoadNav').addEventListener('click', openLoadPicker);
+  // 下部タスクバーの読込ボタン（どのタブからでもワンタップで読込できる）。下部メニューは
+  // ドラッグ／横スワイプでの意図しない発火を防ぐガード(bindSafeTap)を通す。
+  bindSafeTap(document.getElementById('btnLoadNav'), openLoadPicker);
   // 読込んだFileオブジェクトをアプリに適用する（従来のファイル選択と新しいピッカーで共用）
   function applyLoadedFile(file){
     if(!file) return;
@@ -3904,8 +3969,10 @@
       goToTab('tab-station');
     }, { okLabel:'新規作成する', cancelLabel:'キャンセル', danger:false });
   }
-  document.getElementById('btnReset').addEventListener('click', startNewFile);
-  document.getElementById('btnNewNav').addEventListener('click', startNewFile);
+  // 「新しいファイル」「新規現場」はどちらもドラッグ／横スワイプでの意図しない発火を防ぐガードを通す
+  // (項目1・2対応)。startNewFile自体は変更しておらず、既存の未保存警告(showModalでの確認)は必ず通る。
+  bindSafeTap(document.getElementById('btnReset'), startNewFile);
+  bindSafeTap(document.getElementById('btnNewNav'), startNewFile);
   document.getElementById('btnUndo').addEventListener('click', ()=>{ App.undo(); syncFormFields(); });
   document.getElementById('btnRedo').addEventListener('click', ()=>{ App.redo(); syncFormFields(); });
 
