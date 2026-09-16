@@ -1,17 +1,17 @@
-// 配管勾配計算 Pro Service Worker (v1.0.32)
-// 目的: キャッシュバージョンを1.0.32に統一し、旧キャッシュ(桝No.[図面ラベル]と測定順序を
-// 分離する前・上部ヘッダーをコンパクト化する前のindex.html等)を確実に一掃する。
+// 配管勾配計算 Pro Service Worker (v1.0.33)
+// 目的: キャッシュバージョンを1.0.33に統一し、旧キャッシュ(接続先桝No.の候補表示・「未入力」・
+// 測定ライン削除に対応する前のindex.html等)を確実に一掃する。
 // fetchハンドラがキャッシュ優先(cache-first)のため、CACHE_NAMEを変えない限りスマホ側は
 // 古いindex.htmlを配信し続けてしまう＝index.htmlを更新した回は必ずここも合わせて更新すること。
-const CACHE_NAME = 'pipe-slope-calculator-v1.0.32';
+const CACHE_NAME = 'pipe-slope-calculator-v1.0.33';
 const ASSETS = [
   './',
   './index.html',
-  './manifest.json?v=1.0.32',
-  './icon-192.png?v=1.0.32',
-  './icon-512.png?v=1.0.32',
-  './favicon.ico?v=1.0.32',
-  './apple-touch-icon.png?v=1.0.32',
+  './manifest.json?v=1.0.33',
+  './icon-192.png?v=1.0.33',
+  './icon-512.png?v=1.0.33',
+  './favicon.ico?v=1.0.33',
+  './apple-touch-icon.png?v=1.0.33',
   './vendor/supabase.min.js'
 ];
 

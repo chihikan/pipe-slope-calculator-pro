@@ -40,8 +40,10 @@ const TEST_BRIDGE_SNIPPET = `
     defaultState, stripLegacyPipeSizeField, migrateLegacyPointLabels, migrateLoadedChecks,
     computeStartRow, computeAllPoints, cumulativeDistances,
     pipeOffsetMm, evaluateSlopeJudge, slopeN, stationById, currentStation,
-    numberingStepSign, computeAutoLabel, missingLabelNumbers, mainLinePointOptions,
-    switchLine, nextBranchId, createLineData, MAIN_LINE,
+    numberingStepSign, computeAutoLabel, missingLabelNumbers, connectionCandidateOptions,
+    branchOfToValue, valueToBranchOf,
+    switchLine, nextBranchId, createLineData, MAIN_LINE, lineIdList,
+    confirmDeleteLine, deleteLine, showLineModal,
     renderAll, syncFormFields, PIPE_OFFSETS
   };
 `;

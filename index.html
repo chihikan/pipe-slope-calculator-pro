@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.32">
+<link rel="manifest" href="manifest.json?v=1.0.33">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.32">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.32">
-<link rel="icon" href="favicon.ico?v=1.0.32" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.33">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.33">
+<link rel="icon" href="favicon.ico?v=1.0.33" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -28,7 +28,7 @@
     -webkit-tap-highlight-color:transparent;}
   body{padding-bottom:76px;}
   /* 上部ヘッダー：現場での入力・計算表示領域を広く取るため、縦積みブロックではなく
-     折返しチップ2行(hdrChips)に圧縮する（Ver1.0.32）。基準点照合OK/NG等の警告表示
+     折返しチップ2行(hdrChips)に圧縮する（Ver1.0.33）。基準点照合OK/NG等の警告表示
      (.hint/#globalValidationBanner)はヘッダーとは別物のためここでは触れない。 */
   header.top{position:sticky;top:0;z-index:20;background:var(--blue);color:#fff;
     padding:7px 12px;box-shadow:0 2px 6px rgba(0,0,0,.15);transition:background .15s;}
@@ -153,11 +153,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.32" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.33" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.32</div>
+  <div class="t3">Version 1.0.33</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -285,7 +285,7 @@
       </div>
       <div id="pipeTypeFixed" style="display:none;font-weight:700;font-size:15px;padding:8px 4px;"></div>
       <div id="branchOfWrap" style="display:none;">
-        <label>本管接続桝　※このラインが本管のどの桝から分岐するか（表示用・計算には使いません）</label>
+        <label>接続先桝No.　※このラインがどの桝(本管・他の枝管を含む)から分岐するか（表示用・計算には使いません。現場で未確定なら「未入力」のままで測定を進められます）</label>
         <select id="inBranchOfPoint"></select>
       </div>
       <label>配管サイズ</label>
@@ -414,7 +414,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.32<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.33<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -527,14 +527,14 @@
       // stationId: 始点高さの「reading方式」入力(designを決める読み)を読んだ器械。actualReadingM/actualStationId
       // (BM-787不具合の修正、Ver1.0.25で追加)とは別物＝両者は別のタイミングで別の器械で読まれうるため、
       // 互いのIDを絶対に流用しない(computeStartRow参照)。
-      // label: 図面上の桝No.（表示・ラベリング専用。計算には一切使わない。Ver1.0.32で追加）。
+      // label: 図面上の桝No.（表示・ラベリング専用。計算には一切使わない。Ver1.0.33で追加）。
       // 既定"No.1"だが、器械の視認性等で現場ではNo.1以外から測定を始めることがあるため、
       // 「勾配/始点」タブ・計算表タブどちらからでも変更できる(state.numbering参照)。
       start: { method:'measure', readingM:null, directMm:null, glCheckId:null, glDepthMm:null, stationId:null, measureLoc:'invert', actualReadingM:null, actualStationId:null, masuType:defaultMasuType(), label:'No.1' }, // glCheckId/glDepthMm:「設計GL－mmで入力」方式（始点高さ＝器械タブの設計GL照合で選んだGL－深さ）。actualReadingM:始点の実測読み(非分割の場合)。actualStationId:その実測読みを実際に読んだ器械のid。masuType:始点自体の桝種類（段差桝の場合は上流/下流に分割される）
       tolerance: 5,
       precheck: { totalLengthM:'', masuCount:'', targetMm:'' },
       points: [], // {id,label,labelAuto,distanceInputM,masuType,stationId,actualReadingM,measureLoc}
-      // numbering: 桝No.の自動採番設定(表示専用、計算には使わない。Ver1.0.32で追加)。
+      // numbering: 桝No.の自動採番設定(表示専用、計算には使わない。Ver1.0.33で追加)。
       // stepSign: +1=始点から番号が増える方向へ自動採番、-1=減る方向へ自動採番。
       numbering: { stepSign: 1 }
     };
@@ -549,7 +549,7 @@
         stations: [], // 器械設置記録：現場共通（汚水/雨水で共用）。{id,label,ihMm,basis:{type,readingM,tpLabel,tpElevMm}}
         checks: [], // 設計GL照合：現場共通（汚水/雨水で共用）。{id,label,offsetMm,readingM,stationId,measureLoc}
         jobs: {}, // 非アクティブ側の種別データの退避場所（切替時に使用）
-        // branchOf: 枝管ラインが接続する本管側の地点への参照(表示専用、計算には使わない。Ver1.0.32で追加)。
+        // branchOf: 枝管ラインが接続する本管側の地点への参照(表示専用、計算には使わない。Ver1.0.33で追加)。
         // 本管ラインでは常にnull。{lineId:本管側のsite.lines key, pointId:本管の地点id(nullなら本管の始点)}。
         // 表示のたびにsite.lines[lineId]を引き直すため、本管側でラベルを変更・並べ替えても追従する。
         branchOf: null
@@ -561,7 +561,7 @@
     // state.pipeSizeという「使われない直下フィールド」が生まれ、種別・サイズを切り替えても
     // 100固定のまま保存され続けてstate.pipe.sizeと食い違う（不具合レポート:
     // 「lines.本管.pipeSize=100 と jobs.rain.pipeSize=75 が矛盾」の原因）。計算では一切参照しない
-    // フィールドなので、フラットstateには残さない(Ver1.0.32)。
+    // フィールドなので、フラットstateには残さない(Ver1.0.33)。
     delete s.pipeSize;
     return s;
   }
@@ -582,7 +582,7 @@
     }
     return s;
   }
-  // ---------- 桝No.(図面ラベル)と測定順序の分離(Ver1.0.32) ----------
+  // ---------- 桝No.(図面ラベル)と測定順序の分離(Ver1.0.33) ----------
   // ラベルは表示・整理専用の文字列で、計算(距離・高さ・勾配判定)には一切使わない。
   // "No.<数字>" 形式だけ自動採番の対象にする。それ以外(利用者が自由に付けた名前等)は常に手動固定として扱う。
   function parseLabelNumber(label){
@@ -659,20 +659,37 @@
     nu.project = JSON.parse(JSON.stringify(state.project));
     nu.tolerance = state.tolerance;
     if(lineIsRain(id)){ nu.pipe = { type:'rain', size:75 }; } // 汚水枝・本管は既定(汚水)のまま
-    // 枝管は既定で「本管の始点」に接続している扱いにしておく(表示専用。項目6対応)。
-    // 「勾配/始点」タブの本管接続桝ドロップダウンから、実際に接続する桝へいつでも変更できる。
-    if(id!==MAIN_LINE) nu.branchOf = { lineId: MAIN_LINE, pointId: null };
+    // 接続先桝No.(branchOf)は既定で「未入力」(null)のままにする(Ver1.0.33)。現場では下流側へ
+    // 測定するとき次の接続先がまだ分からないことがあるため、未入力の状態でも測定を続けられる
+    // ようにする(計算には一切使わない表示専用情報のため、未入力でも支障はない)。
     return nu;
   }
-  // 本管ライン(MAIN_LINE)の「始点+各地点」を{id,label}の配列で返す(idはnull=始点)。
-  // 枝管の「本管接続桝」ドロップダウンと、その表示解決の両方で使う。表示のたびに呼び直すことで、
-  // 本管側でラベルを変更・並べ替えても枝管側の表示が追従する(計算には一切使わない)。
-  function mainLinePointOptions(){
-    const data = (site.currentLineId===MAIN_LINE) ? state : site.lines[MAIN_LINE];
-    if(!data) return [];
-    const opts = [{ id:null, label:(data.start && data.start.label) || 'No.1' }];
-    (data.points||[]).forEach(p=>opts.push({ id:p.id, label:p.label }));
+  // 「接続先桝No.」ドロップダウンの候補一覧を返す({lineId,pointId,label})。
+  // 本管に限らず、他の全ての測定ライン(自分自身を除く)の「始点+各地点」を対象にする(Ver1.0.33)。
+  // 現場では枝管が本管ではなく既設の別の枝管から分岐することもあるため。表示のたびに呼び直すことで、
+  // 接続先ライン側でラベルを変更・並べ替えても表示が追従する(計算には一切使わない)。
+  function connectionCandidateOptions(){
+    const opts = [];
+    lineIdList().forEach(lineId=>{
+      if(lineId===site.currentLineId) return; // 自分自身には接続できない
+      const data = site.lines[lineId];
+      if(!data) return;
+      opts.push({ lineId, pointId:null, label: lineId+' '+((data.start && data.start.label) || 'No.1') });
+      (data.points||[]).forEach(p=>opts.push({ lineId, pointId:p.id, label: lineId+' '+p.label }));
+    });
     return opts;
+  }
+  // <select>の値文字列とstate.branchOfの相互変換。pointId:nullは「その接続先ラインの始点」を指すため、
+  // 空文字列(""全体)は別に「未入力(まだ決めていない)」専用の意味として予約する(Ver1.0.33)。
+  function branchOfToValue(bo){
+    return (bo && bo.lineId) ? (bo.lineId+'::'+(bo.pointId||'')) : '';
+  }
+  function valueToBranchOf(v){
+    if(!v) return null; // 未入力
+    const i = v.indexOf('::');
+    if(i<0) return null;
+    const pid = v.slice(i+2);
+    return { lineId: v.slice(0,i), pointId: pid===''?null:pid };
   }
   // ライン切替: ①現在ラインを自動保存 → ②切替先を復元（無ければ新規作成）→ ③再描画
   function switchLine(id){
@@ -713,8 +730,11 @@
       const cur = id===site.currentLineId;
       const isMain = id===MAIN_LINE;
       const treePrefix = isMain ? '' : (i===ids.length-1 ? '　└ ' : '　├ ');
-      return '<button class="btn '+(cur?'':'secondary')+'" style="width:100%;margin-top:8px;text-align:left;" data-line="'+id+'">'
-        +treePrefix+(cur?'▶ ':'')+id+(cur?'（測定中）':'')+'</button>';
+      const selectBtn = '<button class="btn '+(cur?'':'secondary')+'" style="flex:1;margin-top:0;text-align:left;" data-line="'+escapeHtml(id)+'">'
+        +treePrefix+(cur?'▶ ':'')+escapeHtml(id)+(cur?'（測定中）':'')+'</button>';
+      // 本管は削除不可（誤操作防止のため削除ボタン自体を出さない）。枝管のみ🗑削除ボタンを表示する。
+      const delBtn = isMain ? '' : '<button class="btn danger" style="flex:0 0 auto;width:auto;margin-top:0;padding:10px 12px;white-space:nowrap;" data-delline="'+escapeHtml(id)+'">🗑 削除</button>';
+      return '<div class="row" style="margin-top:8px;">'+selectBtn+delBtn+'</div>';
     }).join('')
     +'<div style="border-top:1px solid var(--line);margin:12px 0 4px;"></div>'
     +'<button class="btn secondary" style="width:100%;margin-top:8px;" data-add="汚水">＋ 汚水枝を追加</button>'
@@ -727,10 +747,36 @@
     if(!bg || !bg.classList.contains('show')) return;
     const b = e.target.closest('button');
     if(!b){ if(e.target===bg) bg.classList.remove('show'); return; }
+    if(b.dataset.delline){
+      bg.classList.remove('show'); // 一覧モーダルを一旦閉じてから確認モーダルを出す(二重表示を避ける)
+      confirmDeleteLine(b.dataset.delline);
+      return;
+    }
     if(b.dataset.line){ bg.classList.remove('show'); switchLine(b.dataset.line); }
     else if(b.dataset.add){ bg.classList.remove('show'); switchLine(nextBranchId(b.dataset.add)); }
     else if(b.dataset.close){ bg.classList.remove('show'); }
   });
+  // ---------- 測定ラインの削除(Ver1.0.33) ----------
+  // 本管は削除不可。削除対象は枝管のみで、確認モーダルでの明示的な同意を必須にする。
+  function confirmDeleteLine(id){
+    if(id===MAIN_LINE) return; // 二重ガード(呼び出し元でも本管には削除ボタンを出していない)
+    showModal(
+      id+'を削除しますか？\n\nこの枝の測定データも削除されます。',
+      ()=>{ deleteLine(id); },
+      { okLabel:'削除する', cancelLabel:'キャンセル', danger:true, onCancel:()=>showLineModal() }
+    );
+  }
+  function deleteLine(id){
+    if(id===MAIN_LINE) return;
+    // 現在測定中の枝を削除する場合は、先に安全に本管へ切り替える(switchLine内のsnapshotCurrentLine()が
+    // この枝のデータを一旦site.linesへ保存し直すが、直後にそのエントリを削除するため問題ない)。
+    // 他の枝管・本管自体のstations/checks等は各ラインが個別に保持している独立したコピーであり、
+    // この削除では一切変更されない(既存の計算結果・器械盛替えデータへの影響なし)。
+    if(site.currentLineId===id) switchLine(MAIN_LINE);
+    delete site.lines[id];
+    persistSite();
+    showLineModal(); // 一覧を再描画して削除結果を反映する(モーダルは開いたまま)
+  }
   // 上書き保存用のファイルハンドル（File System Access API対応ブラウザで読込んだ時のみ保持）
   let currentFileHandle = null;
   // 保存/読込した時点の内容（JSON文字列）。現在の内容と比較して●保存済み/＊未保存を判定する。
@@ -1328,7 +1374,7 @@
     return chain;
   }
 
-  // ---------- 桝No.(図面ラベル)自動採番(Ver1.0.32) ----------
+  // ---------- 桝No.(図面ラベル)自動採番(Ver1.0.33) ----------
   // ここから下は表示・整理専用。距離・高さ・勾配判定などの計算には一切使わない。
   function numberingStepSign(){
     return (state.numbering && state.numbering.stepSign===-1) ? -1 : 1;
@@ -2056,16 +2102,19 @@
       segPoints.style.display = '';
       fixedEl.style.display = 'none';
     }
-    // 本管接続桝（枝管のときだけ表示。計算には使わない表示専用情報、項目6対応）
+    // 接続先桝No.（枝管のときだけ表示。計算には使わない表示専用情報、項目6対応。Ver1.0.33で
+    // 本管以外の他の枝管も候補にし、「未入力」を先頭に追加した）
     const branchOfWrap = document.getElementById('branchOfWrap');
     if(isBranch){
       branchOfWrap.style.display = 'block';
       const sel = document.getElementById('inBranchOfPoint');
-      const opts = mainLinePointOptions();
-      const curVal = (state.branchOf && state.branchOf.pointId) || '';
-      sel.innerHTML = opts.length
-        ? opts.map(o=>'<option value="'+(o.id||'')+'" '+((o.id||'')===curVal?'selected':'')+'>本管 '+escapeHtml(o.label)+'</option>').join('')
-        : '<option value="">（本管のデータがまだありません）</option>';
+      const opts = connectionCandidateOptions();
+      const curVal = branchOfToValue(state.branchOf);
+      sel.innerHTML = '<option value="">未入力（現場でまだ分からない場合）</option>'
+        + opts.map(o=>{
+            const val = o.lineId+'::'+(o.pointId||'');
+            return '<option value="'+escapeHtml(val)+'" '+(val===curVal?'selected':'')+'>'+escapeHtml(o.label)+'</option>';
+          }).join('');
     } else {
       branchOfWrap.style.display = 'none';
     }
@@ -2831,7 +2880,7 @@
     const b = e.target.closest('button'); if(!b) return;
     handleDirectionTap(b.dataset.v);
   });
-  // 開始桝No.（図面ラベル。計算には使わない表示専用、Ver1.0.32）。変更のたびに自動採番(labelAuto)の
+  // 開始桝No.（図面ラベル。計算には使わない表示専用、Ver1.0.33）。変更のたびに自動採番(labelAuto)の
   // 地点ラベルを詰め直す。renderSlopeTab()はこの欄の.valueを再設定しない(カーソル位置を保つため)。
   document.getElementById('inStartLabel').addEventListener('input', e=>{
     state.start.label = e.target.value;
@@ -2888,10 +2937,10 @@
     pushHistory();
     state.pipe.size = Number(b.dataset.v); renderAll();
   });
-  // 本管接続桝（枝管のみ。表示専用・計算には使わない）
+  // 接続先桝No.（枝管のみ。表示専用・計算には使わない。空欄="未入力"も正式な状態として許可する）
   document.getElementById('inBranchOfPoint').addEventListener('change', e=>{
     pushHistory();
-    state.branchOf = { lineId: MAIN_LINE, pointId: e.target.value || null };
+    state.branchOf = valueToBranchOf(e.target.value);
     renderAll();
   });
   document.getElementById('inTolerance').addEventListener('input', e=>{ state.tolerance = e.target.value; renderPoints(); renderPrecheck(); });
@@ -2911,7 +2960,7 @@
     const inheritedMeasureLoc = lastPoint ? (lastPoint.measureLoc || 'invert') : (state.start.measureLoc || 'invert');
     state.points.push({
       id: nextId(),
-      // ラベルは開始桝No.(state.start.label)＋採番方向から自動計算する（桝No.と測定順序の分離、Ver1.0.32）。
+      // ラベルは開始桝No.(state.start.label)＋採番方向から自動計算する（桝No.と測定順序の分離、Ver1.0.33）。
       // labelAuto:true の間は、並べ替え・削除・開始桝No.や採番方向の変更のたびに再計算される。
       // ラベル欄を直接編集した時点でlabelAutoはfalseになり、以後は自動更新されなくなる(手動固定)。
       label: computeAutoLabel(state.points.length),
@@ -3079,7 +3128,7 @@
     renderHeader();
   };
   // 削除・並べ替え・開始桝No.変更・採番方向変更の後、自動採番(labelAuto:true)の地点だけラベルを
-  // 開始桝No.＋採番方向から詰め直す(Ver1.0.32)。ラベル欄を直接編集した地点(labelAuto:false)は
+  // 開始桝No.＋採番方向から詰め直す(Ver1.0.33)。ラベル欄を直接編集した地点(labelAuto:false)は
   // 手動固定として、ここでは一切変更しない(項目8「途中の桝を飛ばせるようにする」対応)。
   function renumberPoints(){
     state.points.forEach((p,i)=>{

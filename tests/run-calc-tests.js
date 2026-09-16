@@ -815,7 +815,7 @@ test('④⑤. 逆測定+任意開始桝：開始桝No.8・採番方向=減少で
   assertEqual(JSON.stringify(labels), JSON.stringify(['No.7', 'No.6', 'No.5']), '開始桝No.8・減少方向でNo.7,6,5になること');
 });
 
-test('⑥. 枝管の本管接続桝：本管の地点idを参照し、本管側のラベル変更に追従する', () => {
+test('⑥. 接続先桝No.：既定は「未入力」、本管・他の枝管の両方が候補に出て、本管側のラベル変更に追従する', () => {
   freshSite();
   const mainState = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({}), points: [] });
   hooks.setState(mainState);
@@ -825,20 +825,44 @@ test('⑥. 枝管の本管接続桝：本管の地点idを参照し、本管側�
 
   const branchId = hooks.nextBranchId('汚水');
   hooks.switchLine(branchId);
-  assertTrue(!!hooks.getState().branchOf, '枝管作成時にbranchOfの既定値が入っていること');
-  assertEqual(hooks.getState().branchOf.lineId, hooks.MAIN_LINE, '既定の接続先ラインは本管であること');
+  assertEqual(hooks.getState().branchOf, null, '枝管作成時の既定はbranchOf=null(未入力)であること(項目②)');
+  hooks.App.updateStartLabel('No.20');
+  // 枝管自身の始点(器械読み)を設定する(branchOfとは無関係。始点が無いと設計高が計算できないため)
+  const branchState = hooks.getState();
+  branchState.start.method = 'measure';
+  branchState.start.readingM = mm(1300);
+  branchState.start.stationId = 'st1';
+  hooks.setState(branchState);
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 枝管側にも地点を1つ作る(候補確認用)
+
+  // 「未入力」を選んだままでも、距離・実測値等を入力して測定を継続できること(項目②)
+  const branchPointId = hooks.getState().points[0].id;
+  hooks.App.updatePoint(branchPointId, { distanceInputM: '1000', actualReadingM: '1350' });
+  assertEqual(hooks.getState().branchOf, null, '未入力のままでも他の入力は正常に反映されること');
+  const rBranch = hooks.computeAllPoints()[0];
+  assertTrue(rBranch.designElevMm !== null, '未入力のままでも計算が行われること(桝No.は測定順序・計算から完全分離)');
+
+  // 別の枝管(雨水枝)も作る → 接続先候補に本管・この汚水枝・雨水枝が全部出ること(項目①: 本管・枝管を含め表示)
+  const branchId2 = hooks.nextBranchId('雨水');
+  hooks.switchLine(branchId2);
+  let opts = hooks.connectionCandidateOptions();
+  assertTrue(opts.some(o => o.lineId === hooks.MAIN_LINE && o.pointId === mainPoints[1].id && o.label === hooks.MAIN_LINE + ' No.3'),
+    '本管No.3が候補に出ること');
+  assertTrue(opts.some(o => o.lineId === branchId && o.pointId === branchPointId), '他の枝管(汚水枝)の地点も候補に出ること(本管に限らない)');
+  assertTrue(!opts.some(o => o.lineId === branchId2), '自分自身(雨水枝2)は候補に出ないこと');
 
   // 本管No.3(mainPoints[1])に接続していることにする
   hooks.getState().branchOf = { lineId: hooks.MAIN_LINE, pointId: mainPoints[1].id };
-  let opts = hooks.mainLinePointOptions();
-  assertEqual(opts.find(o => o.id === mainPoints[1].id).label, 'No.3', '接続先の本管地点がNo.3として一覧に出ること');
+  opts = hooks.connectionCandidateOptions();
+  assertEqual(opts.find(o => o.lineId === hooks.MAIN_LINE && o.pointId === mainPoints[1].id).label, hooks.MAIN_LINE + ' No.3', '接続先の本管地点がNo.3として一覧に出ること');
+  assertEqual(hooks.branchOfToValue(hooks.getState().branchOf), hooks.MAIN_LINE + '::' + mainPoints[1].id, '選択値のエンコードが正しいこと');
 
   // 本管側でラベルを変更 → 枝管側の解決結果も追従すること(表示専用・計算には使わない)
   hooks.switchLine(hooks.MAIN_LINE);
   hooks.App.updatePoint(mainPoints[1].id, { label: 'No.3-1' });
-  hooks.switchLine(branchId);
-  opts = hooks.mainLinePointOptions();
-  assertEqual(opts.find(o => o.id === mainPoints[1].id).label, 'No.3-1', '本管側の変更に枝管側の表示が追従すること');
+  hooks.switchLine(branchId2);
+  opts = hooks.connectionCandidateOptions();
+  assertEqual(opts.find(o => o.lineId === hooks.MAIN_LINE && o.pointId === mainPoints[1].id).label, hooks.MAIN_LINE + ' No.3-1', '本管側の変更に枝管側の表示が追従すること');
 });
 
 test('⑦. 枝管開始桝選択+自動採番：枝管でも開始桝No.を自由に選び、以降が自動採番される（本管の採番方向とは独立）', () => {
@@ -966,6 +990,105 @@ test('⑫-a. 旧JSON(labelAuto/numbering/branchOf無し)を読み込んでも、
 
 // ⑫-b(直前バージョンとの計算結果比較)は、tests/以下ではなくスクラッチ領域の
 // 一回限りの比較スクリプトで別途実施し、結果を報告する(前回の統合修正と同じ手順)。
+
+// =====================================================================
+// 測定ライン削除（追加修正）
+// =====================================================================
+function setupMainWithStations() {
+  freshSite();
+  const s = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({}), points: [] });
+  hooks.setState(s);
+}
+
+test('V. 測定ライン削除：本管には削除ボタンが出ず、削除できない(ガード)', () => {
+  setupMainWithStations();
+  hooks.switchLine(hooks.nextBranchId('汚水'));
+  hooks.switchLine(hooks.MAIN_LINE);
+  hooks.showLineModal();
+  const html = hooks.document.getElementById('lineModalList').innerHTML;
+  assertTrue(!html.includes('data-delline="' + hooks.MAIN_LINE + '"'), '本管には削除ボタン(data-delline)が出ないこと');
+  hooks.confirmDeleteLine(hooks.MAIN_LINE);
+  assertTrue(!!hooks.getSite().lines[hooks.MAIN_LINE], 'confirmDeleteLine(本管)を呼んでも削除確認モーダルが出ず、本管は残ること');
+  hooks.deleteLine(hooks.MAIN_LINE);
+  assertTrue(!!hooks.getSite().lines[hooks.MAIN_LINE], 'deleteLine(本管)を直接呼んでも本管は削除されないこと');
+});
+
+test('W. 測定ライン削除：確認モーダルの表示文言と、キャンセル時は削除されないこと', () => {
+  freshSite();
+  const stationsSetup = hooks.getState(); stationsSetup.stations = stationsFixture(); hooks.setState(stationsSetup);
+  hooks.switchLine('雨水枝1'); hooks.switchLine(hooks.MAIN_LINE);
+  hooks.switchLine('雨水枝2'); hooks.switchLine(hooks.MAIN_LINE);
+
+  hooks.confirmDeleteLine('雨水枝2');
+  const msg = hooks.document.getElementById('modalText').textContent;
+  assertTrue(msg.includes('雨水枝2'), '確認メッセージに対象のライン名が含まれること');
+  assertTrue(msg.includes('削除'), '確認メッセージに削除の説明が含まれること');
+
+  hooks.document.getElementById('modalCancel')._trigger('click');
+  assertTrue(!!hooks.getSite().lines['雨水枝2'], 'キャンセルした場合は削除されないこと');
+  assertTrue(!!hooks.getSite().lines['雨水枝1'], '他の枝(雨水枝1)も影響を受けないこと');
+});
+
+test('X. 測定ライン削除：確認後に削除され、残った枝の名称は詰め直されない(雨水枝1,3が残る)', () => {
+  freshSite();
+  const stationsSetup = hooks.getState(); stationsSetup.stations = stationsFixture(); hooks.setState(stationsSetup);
+  hooks.switchLine('雨水枝1'); hooks.switchLine(hooks.MAIN_LINE);
+  hooks.switchLine('雨水枝2'); hooks.switchLine(hooks.MAIN_LINE);
+  hooks.switchLine('雨水枝3'); hooks.switchLine(hooks.MAIN_LINE);
+  assertEqual(JSON.stringify(Object.keys(hooks.getSite().lines).sort()), JSON.stringify(['本管', '雨水枝1', '雨水枝2', '雨水枝3']), '前提: 3つの雨水枝が存在すること');
+
+  hooks.confirmDeleteLine('雨水枝2');
+  hooks.document.getElementById('modalOk')._trigger('click');
+
+  const remaining = Object.keys(hooks.getSite().lines).sort();
+  assertEqual(JSON.stringify(remaining), JSON.stringify(['本管', '雨水枝1', '雨水枝3']), '雨水枝2だけが削除され、雨水枝1・雨水枝3はそのままの名前で残ること(詰め直さない)');
+});
+
+test('Y. 測定ライン削除：現在測定中の枝を削除すると安全に本管へ切り替わり、他ラインのデータは無事', () => {
+  freshSite();
+  const stationsSetup = hooks.getState(); stationsSetup.stations = stationsFixture(); hooks.setState(stationsSetup);
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 本管に1地点
+
+  const b1 = hooks.nextBranchId('雨水');
+  hooks.switchLine(b1);
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 雨水枝1に1地点
+  const b1PointsBefore = JSON.stringify(hooks.getState().points);
+
+  hooks.switchLine(hooks.MAIN_LINE);
+  const b2 = hooks.nextBranchId('雨水'); // 雨水枝2
+  hooks.switchLine(b2);
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getSite().currentLineId, b2, '前提: 現在は雨水枝2を測定中');
+
+  hooks.confirmDeleteLine(b2); // 今measuring中の枝を削除
+  hooks.document.getElementById('modalOk')._trigger('click');
+
+  assertEqual(hooks.getSite().currentLineId, hooks.MAIN_LINE, '測定中の枝を削除した後は本管へ安全に切り替わること');
+  assertTrue(!hooks.getSite().lines[b2], '削除した枝(雨水枝2)はsite.linesから消えていること');
+  assertEqual(hooks.getState().points.length, 1, '本管自身のデータ(地点数)は影響を受けていないこと');
+
+  hooks.switchLine(b1);
+  assertEqual(JSON.stringify(hooks.getState().points), b1PointsBefore, '無関係の他の枝(雨水枝1)のデータは一切変化していないこと');
+  assertEqual(hooks.getState().stations.length, 1, '他の枝の器械データも変化していないこと');
+});
+
+test('Z. 測定ライン削除：保存(JSON化)→再読込後も削除状態が維持される', () => {
+  freshSite();
+  const stationsSetup = hooks.getState(); stationsSetup.stations = stationsFixture(); hooks.setState(stationsSetup);
+  hooks.switchLine('雨水枝1'); hooks.switchLine(hooks.MAIN_LINE);
+  hooks.switchLine('雨水枝2'); hooks.switchLine(hooks.MAIN_LINE);
+  hooks.confirmDeleteLine('雨水枝2');
+  hooks.document.getElementById('modalOk')._trigger('click');
+
+  const savedSite = JSON.parse(JSON.stringify(hooks.getSite()));
+  assertTrue(!savedSite.lines['雨水枝2'], '保存データ(JSON化)にも削除済みの枝が含まれないこと');
+  assertTrue(!!savedSite.lines['雨水枝1'], '保存データに残っている枝(雨水枝1)は含まれること');
+
+  // 「アプリ終了→再読込」を模したロード(hooks.setSiteで復元)
+  hooks.setSite(savedSite);
+  assertTrue(!hooks.getSite().lines['雨水枝2'], '再読込後も雨水枝2が復活しないこと');
+  assertTrue(!!hooks.getSite().lines['雨水枝1'], '再読込後も雨水枝1は残っていること');
+});
 
 // ---------- 結果出力 ----------
 let passCount = 0, failCount = 0;
