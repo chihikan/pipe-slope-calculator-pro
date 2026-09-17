@@ -1399,6 +1399,152 @@ test('シナリオE. 枝管の途中地点(No.9)を削除・並べ替えして�
   assertEqual(hooks.getState().points.map(p => p.label).join(','), 'No.9,No.8', '並べ替えても桝No.は変わらないこと(表示順だけが変わる、No.9とNo.8の入れ替え)');
 });
 
+// =====================================================================
+// Ver1.0.36: 桝No.は「現場全体で固定の物理固有番号」であり、施工方向・開始番号の変更・
+// 削除/並べ替えのいずれによっても既存の桝No.を書き換えない（固定シナリオA~F）。
+// 本管No.1~9+放流、雨水枝1が本管No.7から分岐し物理桝No.10~13を持つ、という固定例で検証する。
+// =====================================================================
+function buildFixedScenarioMain() {
+  freshSite();
+  const mainState = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({ label: 'No.1' }), points: [] });
+  hooks.setState(mainState);
+  for (let i = 0; i < 8; i++) hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.2..No.9
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 放流(暫定No.10)
+  const pts = hooks.getState().points;
+  const dischargeId = pts[pts.length - 1].id;
+  hooks.App.updatePoint(dischargeId, { masuTypeSel: '放流' });
+  const mainNo7Id = hooks.getState().points.find(p => p.label === 'No.7').id;
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), 'No.2,No.3,No.4,No.5,No.6,No.7,No.8,No.9,放流', '前提：本管No.1~9+放流');
+  return { mainNo7Id, dischargeId };
+}
+// 枝管ラインを作成し、本管No.7へ接続、器械読みを設定したうえでcurrentLineIdをそのままにする共通処理。
+function setupBranchConnectedToMainNo7(mainNo7Id) {
+  const branchId = hooks.nextBranchId('雨水');
+  hooks.switchLine(branchId);
+  hooks.getState().branchOf = { lineId: hooks.MAIN_LINE, pointId: mainNo7Id };
+  const bs = hooks.getState();
+  bs.start.method = 'measure'; bs.start.readingM = mm(1300); bs.start.stationId = 'st1';
+  hooks.setState(bs);
+  return branchId;
+}
+
+test('固定テストA(下流から施工/上り): 雨水枝1を開くとトップに本管No.7が自動表示され、No.13手入力→桝地点追加でNo.12→No.11→No.10', () => {
+  const { mainNo7Id } = buildFixedScenarioMain();
+  const branchId = setupBranchConnectedToMainNo7(mainNo7Id);
+
+  // 「雨水枝1を開く」→トップ(接続地点)に本管No.7が自動表示される(=探し直す必要がない)
+  const opts = hooks.connectionCandidateOptions();
+  const resolved = opts.find(o => o.lineId === hooks.getState().branchOf.lineId && (o.pointId || null) === (hooks.getState().branchOf.pointId || null));
+  assertTrue(!!resolved, '接続先が解決できること');
+  assertEqual(resolved.label, hooks.MAIN_LINE + ' No.7', '雨水枝1を開いた時点で「接続先：本管No.7」が分かること');
+
+  hooks.handleDirectionTap('up'); // 下流から施工（上り）
+  hooks.App.updateStartLabel('No.13'); // 最初の枝桝としてNo.13を1回だけ手入力
+  assertEqual(hooks.numberingStepSign(), -1, '下流から施工(上り)では採番方向が自動で減少になること');
+
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getState().points[0].label, 'No.12', '');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getState().points[1].label, 'No.11', '');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getState().points[2].label, 'No.10', '');
+
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), 'No.12,No.11,No.10', '画面上の測定順(13→12→11→10)どおりに採番されること');
+  assertEqual(hooks.getState().points.length, 3, '枝管のpoints配列は3件(No.12,11,10)だけであること(本管No.7の複製なし)');
+  assertEqual(hooks.getState().branchOf.pointId, mainNo7Id, '接続先(本管No.7)は書き換わらないこと');
+});
+
+test('固定テストB(上流から施工/下り): 接続先=本管No.7を保持したまま、No.10手入力→桝地点追加でNo.11→No.12→No.13(本管No.7へ合流)', () => {
+  const { mainNo7Id } = buildFixedScenarioMain();
+  const branchId = setupBranchConnectedToMainNo7(mainNo7Id);
+
+  hooks.handleDirectionTap('down'); // 上流から施工（下り）
+  hooks.App.updateStartLabel('No.10');
+  assertEqual(hooks.numberingStepSign(), 1, '上流から施工(下り)では採番方向が自動で増加になること');
+
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getState().points[0].label, 'No.11', '');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getState().points[1].label, 'No.12', '');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getState().points[2].label, 'No.13', '');
+
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), 'No.11,No.12,No.13', '10(始点)→11→12→13という物理接続関係で採番されること');
+  assertEqual(hooks.getState().branchOf.pointId, mainNo7Id, '接続先=本管No.7が保持されること(No.13から先へ新規作成しない)');
+});
+
+test('固定テストC: 同じ枝管で施工方向を切り替えても、既存の物理桝No.10~13自体は変更・再採番されない', () => {
+  const { mainNo7Id } = buildFixedScenarioMain();
+  setupBranchConnectedToMainNo7(mainNo7Id);
+  hooks.handleDirectionTap('down');
+  hooks.App.updateStartLabel('No.10');
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.11
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.12
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.13
+  const before = hooks.getState().points.map(p => p.label).join(',');
+  assertEqual(before, 'No.11,No.12,No.13', '前提');
+
+  hooks.handleDirectionTap('up'); // 施工方向を切り替える
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), before, '施工方向をupに切り替えても既存の桝No.は再採番されないこと');
+  assertEqual(hooks.getState().start.label, 'No.10', '開始番号(No.10)も変わらないこと');
+
+  hooks.handleDirectionTap('down'); // 元に戻しても同様
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), before, 'downへ戻しても桝No.は変わらないこと');
+});
+
+test('固定テストD: 枝管に放流(雨水)を追加しても桝No.を消費しない', () => {
+  const { mainNo7Id } = buildFixedScenarioMain();
+  setupBranchConnectedToMainNo7(mainNo7Id);
+  hooks.handleDirectionTap('down');
+  hooks.App.updateStartLabel('No.10');
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.11
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 暫定No.12
+  const pts = hooks.getState().points;
+  hooks.App.updatePoint(pts[1].id, { masuTypeSel: 'discharge' }); // 放流へ変更
+  assertEqual(hooks.getState().points[1].label, '放流', '放流はNo.12等ではなく種類名がラベルになること');
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 放流はカウントされないので次もNo.12のはず
+  assertEqual(hooks.getState().points[2].label, 'No.12', '放流を追加しても桝No.を消費しないこと');
+});
+
+test('固定テストE: 保存→復元後も本管No.1~9+放流・接続先(本管No.7)・枝管No.10~13・施工方向・開始番号が完全保持される', () => {
+  const { mainNo7Id } = buildFixedScenarioMain();
+  const branchId = setupBranchConnectedToMainNo7(mainNo7Id);
+  hooks.handleDirectionTap('down');
+  hooks.App.updateStartLabel('No.10');
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.11
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.12
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.13
+  hooks.switchLine(hooks.MAIN_LINE);
+
+  const savedSiteJson = JSON.stringify(hooks.getSite());
+  const restoredSite = JSON.parse(savedSiteJson);
+  hooks.setSite(restoredSite);
+  hooks.setState(Object.assign(hooks.defaultState(), JSON.parse(JSON.stringify(restoredSite.lines[hooks.MAIN_LINE]))));
+
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), 'No.2,No.3,No.4,No.5,No.6,No.7,No.8,No.9,放流', '本管No.1~9+放流が保持されること');
+
+  const restoredBranch = restoredSite.lines[branchId];
+  assertTrue(!!restoredBranch, '雨水枝1が復元されること');
+  assertEqual(restoredBranch.branchOf.lineId, hooks.MAIN_LINE, '');
+  assertEqual(restoredBranch.branchOf.pointId, mainNo7Id, '接続先=本管No.7が保持されること');
+  assertEqual(restoredBranch.start.label, 'No.10', '開始番号No.10が保持されること');
+  assertEqual(restoredBranch.slope.direction, 'down', '施工方向が保持されること');
+  assertEqual(restoredBranch.points.map(p => p.label).join(','), 'No.11,No.12,No.13', '枝管の物理桝No.11~13が保持されること');
+});
+
+test('固定テストF: 枝管採番の変更後も、器械盛替え・段差・管上/管下・管サイズ変更を含む計算結果は不変', () => {
+  const { mainNo7Id } = buildFixedScenarioMain();
+  setupBranchConnectedToMainNo7(mainNo7Id);
+  hooks.handleDirectionTap('down');
+  hooks.App.updateStartLabel('No.10');
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.11
+  const p = hooks.getState().points[0];
+  hooks.App.updatePoint(p.id, { distanceInputM: '1000', actualReadingM: '1330' });
+  const r = hooks.computeAllPoints()[0];
+  assertTrue(r.actualElevMm !== null, '新しい桝No.運用(No.10→No.11)でも実測高が計算されること');
+  approxEqual(r.actualElevMm, 1130 - 1330, 0.01, '計算結果自体は桝No.の値(10や11等)に一切依存しないこと');
+});
+
 // ---------- 結果出力 ----------
 let passCount = 0, failCount = 0;
 for (const r of results) {

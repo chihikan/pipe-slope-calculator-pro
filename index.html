@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.35">
+<link rel="manifest" href="manifest.json?v=1.0.36">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.35">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.35">
-<link rel="icon" href="favicon.ico?v=1.0.35" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.36">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.36">
+<link rel="icon" href="favicon.ico?v=1.0.36" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -28,7 +28,7 @@
     -webkit-tap-highlight-color:transparent;}
   body{padding-bottom:76px;}
   /* 上部ヘッダー：現場での入力・計算表示領域を広く取るため、縦積みブロックではなく
-     折返しチップ2行(hdrChips)に圧縮する（Ver1.0.35）。基準点照合OK/NG等の警告表示
+     折返しチップ2行(hdrChips)に圧縮する（Ver1.0.36）。基準点照合OK/NG等の警告表示
      (.hint/#globalValidationBanner)はヘッダーとは別物のためここでは触れない。 */
   header.top{position:sticky;top:0;z-index:20;background:var(--blue);color:#fff;
     padding:7px 12px;box-shadow:0 2px 6px rgba(0,0,0,.15);transition:background .15s;}
@@ -153,11 +153,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.35" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.36" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.35</div>
+  <div class="t3">Version 1.0.36</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -415,7 +415,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.35<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.36<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -528,14 +528,14 @@
       // stationId: 始点高さの「reading方式」入力(designを決める読み)を読んだ器械。actualReadingM/actualStationId
       // (BM-787不具合の修正、Ver1.0.25で追加)とは別物＝両者は別のタイミングで別の器械で読まれうるため、
       // 互いのIDを絶対に流用しない(computeStartRow参照)。
-      // label: 図面上の桝No.（表示・ラベリング専用。計算には一切使わない。Ver1.0.35で追加）。
+      // label: 図面上の桝No.（表示・ラベリング専用。計算には一切使わない。Ver1.0.36で追加）。
       // 既定"No.1"だが、器械の視認性等で現場ではNo.1以外から測定を始めることがあるため、
       // 「勾配/始点」タブ・計算表タブどちらからでも変更できる(state.numbering参照)。
       start: { method:'measure', readingM:null, directMm:null, glCheckId:null, glDepthMm:null, stationId:null, measureLoc:'invert', actualReadingM:null, actualStationId:null, masuType:defaultMasuType(), label:'No.1' }, // glCheckId/glDepthMm:「設計GL－mmで入力」方式（始点高さ＝器械タブの設計GL照合で選んだGL－深さ）。actualReadingM:始点の実測読み(非分割の場合)。actualStationId:その実測読みを実際に読んだ器械のid。masuType:始点自体の桝種類（段差桝の場合は上流/下流に分割される）
       tolerance: 5,
       precheck: { totalLengthM:'', masuCount:'', targetMm:'' },
       points: [], // {id,label,labelAuto,distanceInputM,masuType,stationId,actualReadingM,measureLoc}
-      // numbering: 桝No.の自動採番設定(表示専用、計算には使わない。Ver1.0.35で追加、Ver1.0.35でauto追加)。
+      // numbering: 桝No.の自動採番設定(表示専用、計算には使わない。Ver1.0.36で追加、Ver1.0.36でauto追加)。
       // stepSign: +1=始点から番号が増える方向へ自動採番、-1=減る方向へ自動採番。
       // auto: true(既定)の間はstepSignを保存値ではなくstate.slope.direction(施工方向)から毎回
       // 導出する(down→+1、up→-1)。「採番方向」ボタンをユーザーが明示的に押すとfalseになり、
@@ -553,7 +553,7 @@
         stations: [], // 器械設置記録：現場共通（汚水/雨水で共用）。{id,label,ihMm,basis:{type,readingM,tpLabel,tpElevMm}}
         checks: [], // 設計GL照合：現場共通（汚水/雨水で共用）。{id,label,offsetMm,readingM,stationId,measureLoc}
         jobs: {}, // 非アクティブ側の種別データの退避場所（切替時に使用）
-        // branchOf: 枝管ラインが接続する本管側の地点への参照(表示専用、計算には使わない。Ver1.0.35で追加)。
+        // branchOf: 枝管ラインが接続する本管側の地点への参照(表示専用、計算には使わない。Ver1.0.36で追加)。
         // 本管ラインでは常にnull。{lineId:本管側のsite.lines key, pointId:本管の地点id(nullなら本管の始点)}。
         // 表示のたびにsite.lines[lineId]を引き直すため、本管側でラベルを変更・並べ替えても追従する。
         branchOf: null
@@ -565,7 +565,7 @@
     // state.pipeSizeという「使われない直下フィールド」が生まれ、種別・サイズを切り替えても
     // 100固定のまま保存され続けてstate.pipe.sizeと食い違う（不具合レポート:
     // 「lines.本管.pipeSize=100 と jobs.rain.pipeSize=75 が矛盾」の原因）。計算では一切参照しない
-    // フィールドなので、フラットstateには残さない(Ver1.0.35)。
+    // フィールドなので、フラットstateには残さない(Ver1.0.36)。
     delete s.pipeSize;
     return s;
   }
@@ -586,7 +586,7 @@
     }
     return s;
   }
-  // ---------- 桝No.(図面ラベル)と測定順序の分離(Ver1.0.35) ----------
+  // ---------- 桝No.(図面ラベル)と測定順序の分離(Ver1.0.36) ----------
   // ラベルは表示・整理専用の文字列で、計算(距離・高さ・勾配判定)には一切使わない。
   // "No.<数字>" 形式だけ自動採番の対象にする。それ以外(利用者が自由に付けた名前等)は常に手動固定として扱う。
   function parseLabelNumber(label){
@@ -675,16 +675,16 @@
     nu.project = JSON.parse(JSON.stringify(state.project));
     nu.tolerance = state.tolerance;
     if(lineIsRain(id)){ nu.pipe = { type:'rain', size:75 }; } // 汚水枝・本管は既定(汚水)のまま
-    // 接続先桝No.(branchOf)は既定で「未入力」(null)のままにする(Ver1.0.35)。現場では下流側へ
+    // 接続先桝No.(branchOf)は既定で「未入力」(null)のままにする(Ver1.0.36)。現場では下流側へ
     // 測定するとき次の接続先がまだ分からないことがあるため、未入力の状態でも測定を続けられる
     // ようにする(計算には一切使わない表示専用情報のため、未入力でも支障はない)。
     return nu;
   }
   // 「接続先桝No.」ドロップダウンの候補一覧を返す({lineId,pointId,label})。
-  // 本管に限らず、他の全ての測定ライン(自分自身を除く)の「始点+各地点」を対象にする(Ver1.0.35)。
+  // 本管に限らず、他の全ての測定ライン(自分自身を除く)の「始点+各地点」を対象にする(Ver1.0.36)。
   // 現場では枝管が本管ではなく既設の別の枝管から分岐することもあるため。表示のたびに呼び直すことで、
   // 接続先ライン側でラベルを変更・並べ替えても表示が追従する(計算には一切使わない)。
-  // 放流・浄化槽流入・浄化槽放流は図面上の実在する桝(マンホール)ではないため候補から除外する(Ver1.0.35)。
+  // 放流・浄化槽流入・浄化槽放流は図面上の実在する桝(マンホール)ではないため候補から除外する(Ver1.0.36)。
   function connectionCandidateOptions(){
     const opts = [];
     lineIdList().forEach(lineId=>{
@@ -704,7 +704,7 @@
     return opts;
   }
   // <select>の値文字列とstate.branchOfの相互変換。pointId:nullは「その接続先ラインの始点」を指すため、
-  // 空文字列(""全体)は別に「未入力(まだ決めていない)」専用の意味として予約する(Ver1.0.35)。
+  // 空文字列(""全体)は別に「未入力(まだ決めていない)」専用の意味として予約する(Ver1.0.36)。
   function branchOfToValue(bo){
     return (bo && bo.lineId) ? (bo.lineId+'::'+(bo.pointId||'')) : '';
   }
@@ -781,7 +781,7 @@
     else if(b.dataset.add){ bg.classList.remove('show'); switchLine(nextBranchId(b.dataset.add)); }
     else if(b.dataset.close){ bg.classList.remove('show'); }
   });
-  // ---------- 測定ラインの削除(Ver1.0.35) ----------
+  // ---------- 測定ラインの削除(Ver1.0.36) ----------
   // 本管は削除不可。削除対象は枝管のみで、確認モーダルでの明示的な同意を必須にする。
   function confirmDeleteLine(id){
     if(id===MAIN_LINE) return; // 二重ガード(呼び出し元でも本管には削除ボタンを出していない)
@@ -1401,7 +1401,7 @@
     return chain;
   }
 
-  // ---------- 桝No.(図面ラベル)自動採番(Ver1.0.35/Ver1.0.35) ----------
+  // ---------- 桝No.(図面ラベル)自動採番(Ver1.0.36/Ver1.0.36) ----------
   // ここから下は表示・整理専用。距離・高さ・勾配判定などの計算には一切使わない。
   // 採番方向は既定(auto)では施工方向(state.slope.direction)に従う：
   // 上流から施工(down)→番号が増える方向、下流から施工(up)→番号が減る方向。
@@ -1480,7 +1480,7 @@
   const RAIN_MASU_TYPE_LABELS = { '':'未選択', small:'小口径桝', box:'桶桝', discharge:'放流' };
   const SEWAGE_MASU_TYPE_LABELS = Object.assign({ '':'未選択' }, Object.fromEntries(SEWAGE_MASU_TYPES.map(t=>[t, t==='custom'?'カスタム':t])));
   // 桝No.の自動採番から除外する「終端」の種類(放流・浄化槽流入・浄化槽放流)。これらは図面上の
-  // 物理的な桝(マンホール)ではないため、自動でNo.を付けない・番号のカウントも進めない(Ver1.0.35)。
+  // 物理的な桝(マンホール)ではないため、自動でNo.を付けない・番号のカウントも進めない(Ver1.0.36)。
   const TERMINAL_MASU_TYPES_SEWAGE = ['放流','浄化槽流入','浄化槽放流'];
   function isTerminalMasuType(mt, isSewage){
     if(!mt) return false;
@@ -2156,7 +2156,7 @@
       segPoints.style.display = '';
       fixedEl.style.display = 'none';
     }
-    // 接続先桝No.（枝管のときだけ表示。計算には使わない表示専用情報、項目6対応。Ver1.0.35で
+    // 接続先桝No.（枝管のときだけ表示。計算には使わない表示専用情報、項目6対応。Ver1.0.36で
     // 本管以外の他の枝管も候補にし、「未入力」を先頭に追加した）
     const branchOfWrap = document.getElementById('branchOfWrap');
     if(isBranch){
@@ -2749,7 +2749,7 @@
     }
     goToTab(targetTabId);
   }
-  // ---------- 誤操作防止：ドラッグ／横スワイプによる下部メニューの意図しない発火を防ぐ(Ver1.0.35) ----------
+  // ---------- 誤操作防止：ドラッグ／横スワイプによる下部メニューの意図しない発火を防ぐ(Ver1.0.36) ----------
   // 不具合: スマホで画面をドラッグ／横スワイプした際、指を離した位置に下部メニューのボタン
   // (特に「新規現場」)があると、そこでclickが発火し意図せず切り替わってしまうことがあった。
   //
@@ -2991,11 +2991,11 @@
     if(newDir === state.slope.direction) return; // 変更なしなら何もしない
     pushHistory();
     state.slope.direction = newDir;
-    // 採番方向が自動(state.numbering.auto、既定)の場合、施工方向に連動して桝Noの増減方向が
-    // 変わるため、既存の自動採番ラベルを詰め直す(Ver1.0.35)。ユーザーが「採番方向」ボタンで
-    // 明示的に固定していた場合(auto:false)はnumberingStepSign()が施工方向を見ないため、
-    // ここを呼んでも実質的な影響はない。
-    renumberPoints();
+    // 施工方向は「どちらから測定するか」の設定であり、既に割り振った物理桝No.(label)を
+    // 書き換える理由にはならない(Ver1.0.36の基本規則：物理桝No.は現場全体で固定の固有番号)。
+    // 採番方向が自動(state.numbering.auto、既定)の場合はnumberingStepSign()が新しい施工方向を
+    // 見るため、これより後に「桝地点追加」で新規作成する地点だけが新しい方向で採番される。
+    // 既に付いている地点のlabelには一切触れない(renumberPoints()は呼ばない)。
     renderAll();
   }
   document.getElementById('dirSeg').addEventListener('click', e=>{
@@ -3007,11 +3007,11 @@
     const b = e.target.closest('button'); if(!b) return;
     handleDirectionTap(b.dataset.v);
   });
-  // 開始桝No.（図面ラベル。計算には使わない表示専用、Ver1.0.35）。変更のたびに自動採番(labelAuto)の
-  // 地点ラベルを詰め直す。renderSlopeTab()はこの欄の.valueを再設定しない(カーソル位置を保つため)。
+  // 開始桝No.（図面ラベル。計算には使わない表示専用、Ver1.0.36）。renderSlopeTab()はこの欄の
+  // .valueを再設定しない(カーソル位置を保つため)。既に付いている地点のlabelには一切触れない
+  // (Ver1.0.36：開始桝No.を後から変更しても、既存の物理桝No.は書き換えない)。
   document.getElementById('inStartLabel').addEventListener('input', e=>{
     state.start.label = e.target.value;
-    renumberPoints();
     renderAll();
   });
   document.getElementById('numberingStepSeg').addEventListener('click', e=>{
@@ -3019,9 +3019,10 @@
     pushHistory();
     state.numbering = state.numbering || { stepSign:1, auto:true };
     state.numbering.stepSign = Number(b.dataset.v)===-1 ? -1 : 1;
-    // ユーザーが明示的に押したので、以後は施工方向を変えてもこの向きのまま固定する(Ver1.0.35)。
+    // ユーザーが明示的に押したので、以後は施工方向を変えてもこの向きのまま固定する(Ver1.0.36)。
     state.numbering.auto = false;
-    renumberPoints();
+    // 既に付いている地点のlabelには一切触れない(Ver1.0.36：採番方向を後から変更しても、
+    // 既存の物理桝No.は書き換えない。以後「桝地点追加」で作る新規地点だけに反映される)。
     renderAll();
   });
   // 距離の入力方式は積み上げ(区間ごと)に固定したため、切替UI/リスナーは廃止
@@ -3089,7 +3090,7 @@
     const inheritedMeasureLoc = lastPoint ? (lastPoint.measureLoc || 'invert') : (state.start.measureLoc || 'invert');
     state.points.push({
       id: nextId(),
-      // ラベルは開始桝No.(state.start.label)＋採番方向から自動計算する（桝No.と測定順序の分離、Ver1.0.35）。
+      // ラベルは開始桝No.(state.start.label)＋採番方向から自動計算する（桝No.と測定順序の分離、Ver1.0.36）。
       // labelAuto:true の間は、並べ替え・削除・開始桝No.や採番方向の変更のたびに再計算される。
       // ラベル欄を直接編集した時点でlabelAutoはfalseになり、以後は自動更新されなくなる(手動固定)。
       label: computeAutoLabel(physicalIndexBefore(state.points.length)),
@@ -3129,7 +3130,7 @@
     if('sizeCustomMm' in patch){ p.sizeOverride.customMm = patch.sizeCustomMm; }
     // 桝種類が放流・浄化槽流入・浄化槽放流に変わる(または戻る)と、この地点自身が桝No.の
     // 自動採番対象かどうかが変わるため、この地点自身のラベルだけ更新する。他の地点の桝No.は
-    // 削除・並べ替えと同じ理由で書き換えない(Ver1.0.35の基本思想。物理的な桝No.は配列上の
+    // 削除・並べ替えと同じ理由で書き換えない(Ver1.0.36の基本思想。物理的な桝No.は配列上の
     // 操作で変えない)。
     if('masuTypeSel' in patch){
       p.masuType.type = patch.masuTypeSel;
@@ -3170,7 +3171,8 @@
   // （「勾配/始点」タブのinStartLabelと同じstate.start.labelを操作する）。項目2対応。
   App.updateStartLabel = function(value){
     state.start.label = value;
-    renumberPoints(); // 自動採番(labelAuto)の地点ラベルを開始桝No.の変更に合わせて詰め直す
+    // 既に付いている地点のlabelには一切触れない(Ver1.0.36：開始桝No.を後から変更しても、
+    // 既存の物理桝No.は書き換えない。以後「桝地点追加」で作る新規地点だけに反映される)。
     scheduleRenderPoints(); // 再描画をまとめて行い、入力中にソフトキーボードが閉じるのを防ぐ
     renderHeader();
   };
@@ -3268,7 +3270,7 @@
     renderHeader();
   };
   // 開始桝No.変更・採番方向変更・施工方向変更の後にだけ呼ぶ「全体の詰め直し(リベース)」。
-  // 図面上の物理的な桝No.と、削除・並べ替えという「配列操作」は完全に別物(Ver1.0.35の基本思想)
+  // 図面上の物理的な桝No.と、削除・並べ替えという「配列操作」は完全に別物(Ver1.0.36の基本思想)
   // のため、削除(deletePoint)・並べ替え(movePoint)からは呼ばない＝既に割り振られた桝No.は
   // 残っている地点をどう並べ替えても・どれを消しても書き換えない。
   // 開始桝No.や施工方向そのものを変えた場合だけは、その基準からの相対値である桝No.全体が
@@ -3276,7 +3278,7 @@
   // ラベル欄を直接編集した地点(labelAuto:false)は手動固定として、ここでは一切変更しない
   // (項目8「途中の桝を飛ばせるようにする」対応)。
   // 放流・浄化槽流入・浄化槽放流(isPhysicalManhole===false)は桝No.を自動付与しない
-  // (種類名をそのままラベルにする)・番号カウントも進めない(Ver1.0.35)。
+  // (種類名をそのままラベルにする)・番号カウントも進めない(Ver1.0.36)。
   function renumberPoints(){
     let physIdx = 0;
     const isSewage = state.pipe.type === 'sewage';
@@ -3289,7 +3291,7 @@
       }
     });
   }
-  // 削除しても、残っている地点の桝No.(label)は一切書き換えない(Ver1.0.35の基本思想：
+  // 削除しても、残っている地点の桝No.(label)は一切書き換えない(Ver1.0.36の基本思想：
   // 「測定した順番」と「図面上の物理的な桝No.」は完全に別物。例：No.10→No.9→No.8から
   // No.9を削除してもNo.10→No.8のまま残し、No.8をNo.9へ詰め直さない)。
   App.deletePoint = function(id){
@@ -3297,7 +3299,7 @@
     state.points = state.points.filter(p=>p.id!==id);
     renderPoints();
   };
-  // 並べ替え(▲▼)も表示順だけを変える操作であり、桝No.(label)には一切触れない(Ver1.0.35)。
+  // 並べ替え(▲▼)も表示順だけを変える操作であり、桝No.(label)には一切触れない(Ver1.0.36)。
   App.movePoint = function(id, dir){
     const idx = state.points.findIndex(p=>p.id===id);
     const newIdx = idx+dir;
