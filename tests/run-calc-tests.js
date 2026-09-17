@@ -980,12 +980,12 @@ test('⑫-a. 旧JSON(labelAuto/numbering/branchOf無し)を読み込んでも、
   assertEqual(restored.start.label, undefined, 'labelが元々無い場合はstate.start.labelを勝手に書き込まないこと(読み出し側で\'No.1\'にフォールバック)');
 
   hooks.setState(restored);
-  // 並べ替えても、旧仕様どおり自動地点だけ詰め直され、カスタム名前はそのまま
+  // Ver1.0.35の基本思想：「測定した順番」と「図面上の物理的な桝No.」は完全に別物であり、
+  // 並べ替え(▲▼)は桝No.(label)を一切書き換えない。移行後の自動地点(No.2)もカスタム名前も、
+  // 並べ替え後にそのままの桝No.で残ること。
   hooks.App.movePoint('p2', -1);
   const labels = hooks.getState().points.map(p => p.label);
-  // 旧renumberPoints()も"No."+(配列位置+2)で位置ベースに詰め直す仕様だったため、
-  // 並べ替え後は自動地点(No.2)が新しい位置(index1)に応じてNo.3へ再計算される(旧仕様と同じ挙動)。
-  assertEqual(JSON.stringify(labels), JSON.stringify(['カスタム名前', 'No.3']), '移行後も旧renumberPoints()と同じ見た目の挙動になること');
+  assertEqual(JSON.stringify(labels), JSON.stringify(['カスタム名前', 'No.2']), '並べ替えても桝No.は書き換わらないこと(Ver1.0.35)');
 });
 
 // ⑫-b(直前バージョンとの計算結果比較)は、tests/以下ではなくスクラッチ領域の
@@ -1196,6 +1196,207 @@ test('DD. 下部メニューの読込ボタン(btnLoadNav)も横スワイプで�
   const before = JSON.stringify(hooks.getState());
   simulateDragEndingOverButton(hooks, btn);
   assertEqual(JSON.stringify(hooks.getState()), before, '読込ボタンへの横スワイプでもstateは変化しないこと(誤操作防止)');
+});
+
+// =====================================================================
+// 枝管作成と桝No.自動採番の再設計（今回の統合修正・必須フルシナリオテスト）
+// =====================================================================
+test('採番方向の既定値：施工方向に自動追従し、明示的にトグルすると固定される', () => {
+  freshSite();
+  const s = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({}), points: [] });
+  hooks.setState(s);
+  assertEqual(hooks.numberingStepSign(), 1, '既定(下り/down)では+1');
+  hooks.handleDirectionTap('up');
+  assertEqual(hooks.numberingStepSign(), -1, '施工方向をup(上り)に変えると自動で-1に追従すること(トグル操作なし)');
+  hooks.handleDirectionTap('down');
+  assertEqual(hooks.numberingStepSign(), 1, '再度downに戻すと+1に戻ること(固定していないので追従する)');
+
+  // 明示的にトグルで-1を選ぶと、以後は施工方向を変えても固定される
+  hooks.document.getElementById('numberingStepSeg')._trigger('click', { target: { closest: () => ({ dataset: { v: '-1' } }) } });
+  assertEqual(hooks.numberingStepSign(), -1, 'トグルで明示的に-1を選択');
+  hooks.handleDirectionTap('up');
+  assertEqual(hooks.numberingStepSign(), -1, '施工方向を変えても、明示的に選んだ-1のまま固定されること');
+  hooks.handleDirectionTap('down');
+  assertEqual(hooks.numberingStepSign(), -1, 'downに戻しても固定した-1のまま(基本思想：測定順序で桝No.を書き換えない)');
+});
+
+test('旧numbering(auto未定義)の移行：施工方向と一致する保存値はauto扱い、食い違う値は明示的な固定として保持', () => {
+  const s1 = { slope: { direction: 'down' }, numbering: { stepSign: 1 } };
+  hooks.migrateLegacyNumbering(s1);
+  assertEqual(s1.numbering.auto, true, '施工方向(down)と保存値(+1)が一致するのでauto扱いになること');
+
+  const s2 = { slope: { direction: 'down' }, numbering: { stepSign: -1 } };
+  hooks.migrateLegacyNumbering(s2);
+  assertEqual(s2.numbering.auto, false, '施工方向(down)と保存値(-1)が食い違うので、ユーザーの明示的な選択として固定されること(既存データを書き換えない)');
+});
+
+test('シナリオC. 放流・浄化槽流入・浄化槽放流を追加しても桝No.としてカウントされない', () => {
+  freshSite();
+  const s = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({ label: 'No.1' }), points: [] });
+  hooks.setState(s);
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.2
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 暫定No.3 → 浄化槽流入へ変更
+  let pts = hooks.getState().points;
+  hooks.App.updatePoint(pts[1].id, { masuTypeSel: '浄化槽流入' });
+  assertEqual(hooks.getState().points[1].label, '浄化槽流入', '浄化槽流入はNo.3のままではなく種類名がラベルになること');
+
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 浄化槽流入はカウントされないのでNo.3になるはず
+  pts = hooks.getState().points;
+  assertEqual(pts[2].label, 'No.3', '浄化槽流入はカウントされず、次の物理桝はNo.3になること');
+
+  hooks.App.updatePoint(pts[2].id, { masuTypeSel: '浄化槽放流' }); // これも終端
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  pts = hooks.getState().points;
+  assertEqual(pts[3].label, 'No.3', '浄化槽放流もカウントされないこと(物理桝はNo.2の1個だけなので次もNo.3)');
+
+  hooks.App.updatePoint(pts[3].id, { masuTypeSel: '放流' }); // 放流もカウント対象外
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  pts = hooks.getState().points;
+  assertEqual(pts[4].label, 'No.3', '放流もカウントされないこと');
+  assertEqual(pts.filter(p => /^No\.\d+$/.test(p.label)).length, 2, '最終的に番号付きの物理桝はNo.2とNo.3の2個だけであること');
+});
+
+test('シナリオA. 本管No.1~7+放流 → 雨水枝1作成(本管No.7へ接続) → 下流施工(上り)・開始桝No.10 → No.9 → No.8(本管No.7の複製なし)', () => {
+  freshSite();
+  const mainState = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({ label: 'No.1' }), points: [] });
+  hooks.setState(mainState);
+  for (let i = 0; i < 6; i++) hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.2..No.7
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), 'No.2,No.3,No.4,No.5,No.6,No.7', '本管No.2~7が正しく自動採番されること');
+
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 放流(暫定No.8)
+  const mainPtsBefore = hooks.getState().points;
+  const dischargePoint = mainPtsBefore[mainPtsBefore.length - 1];
+  const mainNo7 = mainPtsBefore[mainPtsBefore.length - 2];
+  assertEqual(mainNo7.label, 'No.7', '前提：本管No.7を特定できること');
+  hooks.App.updatePoint(dischargePoint.id, { masuTypeSel: '放流' });
+  assertEqual(hooks.getState().points[hooks.getState().points.length - 1].label, '放流', '放流はNo.8等ではなく種類名がラベルになること(項目「放流は桝No.としてカウントしない」)');
+  const mainPointCountWithDischarge = hooks.getState().points.length;
+
+  // 雨水枝1作成
+  const branchId = hooks.nextBranchId('雨水');
+  hooks.switchLine(branchId);
+
+  // 「本管から分岐する桝No.」の候補：本管No.7は含まれるが、放流(終端)は含まれない
+  let candidates = hooks.connectionCandidateOptions();
+  assertTrue(candidates.some(o => o.lineId === hooks.MAIN_LINE && o.pointId === mainNo7.id && o.label === hooks.MAIN_LINE + ' No.7'), '候補に本管No.7が実在すること(項目：本管上の実在する番号付き桝だけを候補に)');
+  assertTrue(!candidates.some(o => o.lineId === hooks.MAIN_LINE && o.pointId === dischargePoint.id), '候補に放流(本管の終端)が含まれないこと');
+
+  // 本管分岐桝No.7を指定
+  hooks.getState().branchOf = { lineId: hooks.MAIN_LINE, pointId: mainNo7.id };
+
+  // 雨水枝1を開いた時点で「接続先：本管 No.7」が明確に分かる(=探し直す必要がない)
+  candidates = hooks.connectionCandidateOptions();
+  const resolved = candidates.find(o => o.lineId === hooks.getState().branchOf.lineId && (o.pointId || null) === (hooks.getState().branchOf.pointId || null));
+  assertTrue(!!resolved, '接続先が候補の中から解決できること');
+  assertEqual(resolved.label, hooks.MAIN_LINE + ' No.7', '接続先が「本管 No.7」として表示されること');
+
+  // 枝管自身の始点(器械読み)を設定し、下流から施工（上り）にする
+  const branchState = hooks.getState();
+  branchState.start.method = 'measure'; branchState.start.readingM = mm(1300); branchState.start.stationId = 'st1';
+  hooks.setState(branchState);
+  hooks.handleDirectionTap('up'); // 下流から施工（上り）
+  hooks.App.updateStartLabel('No.10'); // 枝管開始桝No.10をユーザーが手入力
+
+  assertEqual(hooks.numberingStepSign(), -1, '下流から施工(上り)では採番方向が自動で減少になること(トグル操作なし)');
+  assertEqual(hooks.getState().start.label, 'No.10', '枝管開始桝No.が10であること');
+
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 桝地点追加
+  assertEqual(hooks.getState().points[0].label, 'No.9', '枝管地点追加でNo.9になること');
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 桝地点追加
+  assertEqual(hooks.getState().points[1].label, 'No.8', '次の追加でNo.8になること');
+
+  // 枝管自身の桝No.はNo.10(始点)・No.9・No.8の3つだけ。本管No.7は新規作成されない(複製なし)
+  assertEqual(hooks.getState().points.length, 2, '枝管のpoints配列は2件(No.9,No.8)だけであること');
+  assertTrue(!hooks.getState().points.some(p => p.label === 'No.7'), '枝管側にNo.7が複製されていないこと');
+  assertEqual(hooks.getState().branchOf.lineId, hooks.MAIN_LINE, '接続先ライン(本管)は書き換わっていないこと');
+  assertEqual(hooks.getState().branchOf.pointId, mainNo7.id, '接続先(本管No.7への参照)は新規作成ではなく既存地点への参照のままであること');
+
+  // 本管側は枝管作成・接続の影響を受けず、そのまま(複製・書き換えなし)
+  hooks.switchLine(hooks.MAIN_LINE);
+  assertEqual(hooks.getState().points.length, mainPointCountWithDischarge, '本管の地点数が変化していないこと(枝管作成の影響を受けない)');
+  assertEqual(hooks.getState().points.find(p => p.id === mainNo7.id).label, 'No.7', '本管No.7のラベルも変化していないこと');
+});
+
+test('シナリオB. 上流から施工（下り）・開始桝No.8 → No.8,No.9,No.10と正順(+1)になること', () => {
+  freshSite();
+  const s = freshState({ pipeType: 'rain', pipeSize: 75, stations: stationsFixture(), start: startFixture({ label: 'No.8', measureLoc: 'top' }), points: [] });
+  s.slope.direction = 'down'; // 上流から施工(下り)
+  hooks.setState(s);
+  assertEqual(hooks.numberingStepSign(), 1, '上流から施工(下り)では採番方向が自動で増加(+1)になること');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getState().points[0].label, 'No.9', '開始桝No.8の次はNo.9になること');
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertEqual(hooks.getState().points[1].label, 'No.10', 'さらに次はNo.10になること');
+  // 接続先(本管桝No.)は施工方向を変えても別管理で書き換わらないことの確認
+  hooks.getState().branchOf = { lineId: hooks.MAIN_LINE, pointId: 'dummy-point-id' };
+  hooks.handleDirectionTap('up');
+  hooks.handleDirectionTap('down');
+  assertEqual(hooks.getState().branchOf.pointId, 'dummy-point-id', '施工方向を変えても接続先(branchOf)は書き換わらないこと');
+});
+
+test('シナリオD. 保存→終了→復元後も、本管No.1~7+放流・雨水枝1・接続先(本管No.7)・開始桝No.10・枝管No.9,8が完全一致する', () => {
+  freshSite();
+  const mainState = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({ label: 'No.1' }), points: [] });
+  hooks.setState(mainState);
+  for (let i = 0; i < 6; i++) hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.2..No.7
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // 放流
+  let mainPts = hooks.getState().points;
+  const dischargeId = mainPts[mainPts.length - 1].id;
+  const mainNo7Id = mainPts[mainPts.length - 2].id;
+  hooks.App.updatePoint(dischargeId, { masuTypeSel: '放流' });
+
+  const branchId = hooks.nextBranchId('雨水');
+  hooks.switchLine(branchId);
+  hooks.getState().branchOf = { lineId: hooks.MAIN_LINE, pointId: mainNo7Id };
+  const bs = hooks.getState();
+  bs.start.method = 'measure'; bs.start.readingM = mm(1300); bs.start.stationId = 'st1';
+  hooks.setState(bs);
+  hooks.handleDirectionTap('up');
+  hooks.App.updateStartLabel('No.10');
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.9
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.8
+  hooks.switchLine(hooks.MAIN_LINE); // 現在ラインを本管に戻す(枝管の内容をsite.linesへスナップショット)
+
+  // 「保存」＝site全体をJSON化。「アプリ終了→復元」＝JSON.parseし直したものを復元する。
+  const savedSiteJson = JSON.stringify(hooks.getSite());
+  const restoredSite = JSON.parse(savedSiteJson);
+  hooks.setSite(restoredSite);
+  hooks.setState(Object.assign(hooks.defaultState(), JSON.parse(JSON.stringify(restoredSite.lines[hooks.MAIN_LINE]))));
+
+  const restoredMain = hooks.getState();
+  assertEqual(restoredMain.points.map(p => p.label).join(','), 'No.2,No.3,No.4,No.5,No.6,No.7,放流', '本管No.1~7+放流が復元後も一致すること');
+
+  const restoredBranch = restoredSite.lines[branchId];
+  assertTrue(!!restoredBranch, '雨水枝1が復元されること');
+  assertEqual(restoredBranch.start.label, 'No.10', '枝管の開始桝No.が復元されること');
+  assertEqual(restoredBranch.points.map(p => p.label).join(','), 'No.9,No.8', '枝管の物理桝No.(No.9,No.8)が復元されること');
+  assertEqual(restoredBranch.slope.direction, 'up', '測定方向(下流から施工)が復元されること');
+  assertEqual(restoredBranch.branchOf.lineId, hooks.MAIN_LINE, '接続先ラインが復元されること');
+  assertEqual(restoredBranch.branchOf.pointId, mainNo7Id, '接続先(本管No.7)のid参照が復元されること');
+});
+
+test('シナリオE. 枝管の途中地点(No.9)を削除・並べ替えしても、既存の物理桝No.(No.10,No.8)を書き換えない', () => {
+  freshSite();
+  const s = freshState({ pipeType: 'rain', pipeSize: 75, stations: stationsFixture(), start: startFixture({ label: 'No.10', measureLoc: 'top' }), points: [] });
+  s.slope.direction = 'up';
+  hooks.setState(s);
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.9
+  hooks.document.getElementById('btnAddPoint')._trigger('click'); // No.8
+  let pts = hooks.getState().points;
+  assertEqual(pts.map(p => p.label).join(','), 'No.9,No.8', '前提：No.9,No.8が採番されていること');
+
+  hooks.App.deletePoint(pts[0].id); // No.9を削除
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), 'No.8', 'No.9を削除してもNo.8のラベルは書き換わらないこと(No.9へ詰め直さない)');
+
+  // 現場で後日測定できたNo.9相当の桝を、手動でラベルを付け直して追加する(飛び番はユーザーが把握して管理する運用)
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  let pts2 = hooks.getState().points;
+  hooks.App.updatePoint(pts2[1].id, { label: 'No.9' }); // 手動固定(labelAuto:falseになる)
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), 'No.8,No.9', '手動でNo.9を付け直せること');
+
+  // ▲で並べ替えても、どちらの桝No.も書き換わらない(表示順だけが変わる)
+  hooks.App.movePoint(pts2[1].id, -1);
+  assertEqual(hooks.getState().points.map(p => p.label).join(','), 'No.9,No.8', '並べ替えても桝No.は変わらないこと(表示順だけが変わる、No.9とNo.8の入れ替え)');
 });
 
 // ---------- 結果出力 ----------
