@@ -1545,6 +1545,57 @@ test('固定テストF: 枝管採番の変更後も、器械盛替え・段差�
   approxEqual(r.actualElevMm, 1130 - 1330, 0.01, '計算結果自体は桝No.の値(10や11等)に一切依存しないこと');
 });
 
+// =====================================================================
+// Ver1.0.37: 実機で報告された2点(「雨水枝1がNo.1から表示される」「本管分岐桝選択欄が画面上にない」)の修正
+// =====================================================================
+test('新規枝管の開始桝No.は既定で空欄(placeholderのみ)になり、"No.1"のように確定値らしく表示されない', () => {
+  freshSite();
+  const mainState = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({ label: 'No.1' }), points: [] });
+  hooks.setState(mainState);
+  assertEqual(hooks.getState().start.label, 'No.1', '前提：本管の既定は従来どおりNo.1のままであること(本管はcreateLineDataを通らない)');
+
+  const branchId = hooks.nextBranchId('雨水');
+  hooks.switchLine(branchId);
+  assertEqual(hooks.getState().start.label, '', '枝管作成直後のstart.labelは空欄であること(No.1が確定値のように表示される不具合の修正)');
+
+  // 表示専用の入力欄自体も空欄(placeholderのみ)で、値として"No.1"を持たないこと
+  hooks.syncFormFields();
+  assertEqual(hooks.document.getElementById('inStartLabel').value, '', '「開始桝No.」入力欄が空欄で表示されること(placeholderのみ)');
+
+  // ただし計算・ラベル自動採番のフォールバックには影響しない(空欄のままでも例外なく動作する)
+  hooks.document.getElementById('btnAddPoint')._trigger('click');
+  assertTrue(!!hooks.getState().points[0].label, '開始桝No.が未入力のままでも地点追加が例外なく行えること');
+
+  // 本管へ戻ればNo.1のままであること(枝管の空欄化は本管に影響しない)
+  hooks.switchLine(hooks.MAIN_LINE);
+  assertEqual(hooks.getState().start.label, 'No.1', '本管の開始桝No.(No.1)は変化しないこと');
+});
+
+test('枝管を新規作成すると、「接続先桝No.」欄がある勾配/始点タブへ自動的に移動する(選択欄が見つからない不具合の修正)', () => {
+  freshSite();
+  const mainState = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({}), points: [] });
+  hooks.setState(mainState);
+
+  // ライン切替モーダルを開いた状態を再現し、「＋雨水枝を追加」ボタンの実クリックハンドラ
+  // (document委譲のdata-addハンドラ)を、器械タブ(既定のtab-station)にいる状態から起動する。
+  hooks.showLineModal();
+  const bg = hooks.document.getElementById('lineModalBg');
+  assertTrue(bg.classList.contains('show'), '前提：ライン一覧モーダルが開いていること');
+  // goToTab('tab-slope')は.tab-btn/.sectionをdocument.querySelectorAllで探すが、この
+  // テストスタブはクラス検索を実装していないため例外なく完了すること自体で
+  // 「呼び出しがエラーなく実行された」ことを確認する(実機側の見た目確認は別途)。
+  hooks.document._trigger('click', { target: { closest: () => ({ dataset: { add: '雨水' } }) } });
+
+  assertTrue(!bg.classList.contains('show'), 'モーダルは閉じること');
+  assertEqual(hooks.getSite().currentLineId, '雨水枝1', '雨水枝1が作成され、現在のラインになっていること');
+
+  // 「接続先桝No.」欄・「開始桝No.」欄がある勾配/始点タブの内容が、実際にレンダリングされていること
+  // (renderAll→renderSlopeTab→renderPipeTabが実行され、branchOfWrapがブロック表示になっていること)
+  assertEqual(hooks.document.getElementById('branchOfWrap').style.display, 'block', '接続先桝No.の入力欄(branchOfWrap)が表示状態になっていること');
+  assertTrue(hooks.document.getElementById('inBranchOfPoint').innerHTML.length > 0, '接続先桝No.の候補が描画されていること');
+  assertEqual(hooks.document.getElementById('branchOfDisplay').textContent, '接続先：未入力（現場でまだ分からない場合）', '接続先の表示テキストがあること(未選択時は明示的に「未入力」と分かる)');
+});
+
 // ---------- 結果出力 ----------
 let passCount = 0, failCount = 0;
 for (const r of results) {
