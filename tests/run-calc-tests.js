@@ -806,7 +806,7 @@ test('④⑤. 逆測定+任意開始桝：開始桝No.8・採番方向=減少で
   const s = freshState({ pipeType: 'sewage', pipeSize: 100, stations: stationsFixture(), start: startFixture({ label: 'No.8' }), points: [] });
   s.numbering = { stepSign: -1 };
   hooks.setState(s);
-  hooks.document.getElementById('numberingStepSeg')._trigger('click', { target: { closest: () => ({ dataset: { v: '-1' } }) } });
+  hooks.handleDirectionTap('up'); // 枝は施工方向に従って自動で減少(-1)
   assertEqual(hooks.getState().numbering.stepSign, -1, '採番方向が減少(-1)に設定されること');
   hooks.document.getElementById('btnAddPoint')._trigger('click');
   hooks.document.getElementById('btnAddPoint')._trigger('click');
@@ -873,7 +873,7 @@ test('⑦. 枝管開始桝選択+自動採番：枝管でも開始桝No.を自�
   hooks.switchLine(branchId);
   hooks.getState().branchOf = { lineId: hooks.MAIN_LINE, pointId: null };
   hooks.App.updateStartLabel('No.8');
-  hooks.document.getElementById('numberingStepSeg')._trigger('click', { target: { closest: () => ({ dataset: { v: '-1' } }) } });
+  hooks.handleDirectionTap('up'); // 枝は施工方向に従って自動で減少(-1)
   hooks.document.getElementById('btnAddPoint')._trigger('click');
   hooks.document.getElementById('btnAddPoint')._trigger('click');
   const labels = hooks.getState().points.map(p => p.label);
@@ -1593,7 +1593,7 @@ test('枝管を新規作成すると、「接続先桝No.」欄がある勾配/�
   // (renderAll→renderSlopeTab→renderPipeTabが実行され、branchOfWrapがブロック表示になっていること)
   assertEqual(hooks.document.getElementById('branchOfWrap').style.display, 'block', '接続先桝No.の入力欄(branchOfWrap)が表示状態になっていること');
   assertTrue(hooks.document.getElementById('inBranchOfPoint').innerHTML.length > 0, '接続先桝No.の候補が描画されていること');
-  assertEqual(hooks.document.getElementById('branchOfDisplay').textContent, '接続先：未入力（現場でまだ分からない場合）', '接続先の表示テキストがあること(未選択時は明示的に「未入力」と分かる)');
+  assertEqual(hooks.document.getElementById('branchOfDisplay').textContent, '合流桝：未選択', '接続先の表示テキストがあること(未選択時は明示的に「未入力」と分かる)');
 });
 
 // =====================================================================

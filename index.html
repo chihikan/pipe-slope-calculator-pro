@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>配管勾配計算 Pro</title>
-<link rel="manifest" href="manifest.json?v=1.0.38">
+<link rel="manifest" href="manifest.json?v=1.0.39">
 <meta name="theme-color" content="#2563eb">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.38">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.38">
-<link rel="icon" href="favicon.ico?v=1.0.38" sizes="48x48 32x32 16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.39">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.0.39">
+<link rel="icon" href="favicon.ico?v=1.0.39" sizes="48x48 32x32 16x16">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -161,11 +161,11 @@
 </head>
 <body>
 <div id="splash">
-  <img src="icon-192.png?v=1.0.38" alt="" onerror="this.style.display='none'">
+  <img src="icon-192.png?v=1.0.39" alt="" onerror="this.style.display='none'">
   <div class="t1">配管勾配計算 Pro</div>
   <div class="t2">Pipe Slope Calculator</div>
   <div class="bar"></div>
-  <div class="t3">Version 1.0.38</div>
+  <div class="t3">Version 1.0.39</div>
   <div class="t4">Designed by Izumi Sangyo</div>
 </div>
 
@@ -293,9 +293,10 @@
       </div>
       <div id="pipeTypeFixed" style="display:none;font-weight:700;font-size:15px;padding:8px 4px;"></div>
       <div id="branchOfWrap" style="display:none;">
-        <div id="branchOfDisplay" style="font-weight:700;font-size:15px;padding:6px 4px;color:var(--blue-dark);"></div>
-        <label>接続先桝No.　※このラインがどの桝(本管・他の枝管を含む)から分岐するか（表示用・計算には使いません。現場で未確定なら「未入力」のままで測定を進められます）</label>
+        <div id="branchOfDisplay" style="font-weight:700;font-size:16px;padding:8px 4px;color:var(--blue-dark);"></div>
+        <label>合流桝（本管・他の枝の桝から選択）</label>
         <select id="inBranchOfPoint"></select>
+        <div class="hint">例：雨水枝1が本管No.7へ合流する場合は「本管 No.7」を選びます。これは枝の接続関係を記録する欄です。</div>
       </div>
       <label>配管サイズ</label>
       <div class="seg" id="pipeSizeSeg"></div>
@@ -328,12 +329,8 @@
       <h2>🚩 始点</h2><div class="req-legend"><span class="rq"></span> ＝必須入力（未入力）　<span class="dn"></span> ＝入力済み</div>
       <label class="first">開始桝No.（図面の番号。No.1以外からでも測定を始められます）</label>
       <input type="text" id="inStartLabel" placeholder="例）No.1">
-      <label>採番方向　※計算表で地点を追加した時、次の桝Noを自動でどちら向きに付番するか</label>
-      <div class="seg" id="numberingStepSeg">
-        <button data-v="1">増加(+1)</button>
-        <button data-v="-1">減少(-1)</button>
-      </div>
-      <div class="hint" style="margin-top:0;">桝No.は表示・整理専用です。高さ・勾配の計算には一切使いません。地点のラベル欄を直接書き換えると、その地点だけ自動採番の対象から外れます（現場で桝を飛ばした時などに）。</div>
+      <div id="numberingStepSeg" style="display:none;"></div>
+      <div class="hint" style="margin-top:6px;">桝No.は施工方向に合わせて自動採番します。上流から施工＝+1、下流から施工＝-1。例：下流から施工で開始桝No.13なら、地点追加ごとにNo.12→No.11→No.10となります。</div>
       <label>始点高さの決め方</label>
       <div class="seg" id="startMethodSeg">
         <button data-v="measure">現地で測定する</button>
@@ -423,7 +420,7 @@
       <input type="file" id="fileLoad" accept=".json,application/json,text/plain" style="display:none;">
       <div class="hint">現場保存＝全測定ライン（汚水/雨水の本管・枝管すべて）を現場名の1ファイルにまとめて書き出します。読込でそのファイルを選ぶと現場ごと復元されます（今開いている内容は上書きされます）。作業中は自動消灯やアプリ中断に備えて一時保存されます。現場保存後は一時データを消去するため、次回は新規状態から始まります。</div>
       <button class="btn danger" id="btnReset">📄 新しいファイル</button>
-      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.38<br>Designed by Izumi Sangyo</div>
+      <div class="hint" style="text-align:center;margin-top:16px;opacity:.7;">配管勾配計算 Pro　Version 1.0.39<br>Designed by Izumi Sangyo</div>
     </div>
 
     <div class="card">
@@ -1431,7 +1428,8 @@
   // 変えてもここで固定した向きを使い続ける(numberingStepSegのクリックハンドラでauto:falseにする)。
   function numberingStepSign(){
     const n = state.numbering;
-    if(n && n.auto===false) return (n.stepSign===-1) ? -1 : 1; // 明示的に上書き済み(固定)
+    if(site.currentLineId!==MAIN_LINE) return (state.slope.direction==='up') ? -1 : 1; // 枝は施工方向から常に自動導出
+    if(n && n.auto===false) return (n.stepSign===-1) ? -1 : 1; // 本管のみ旧設定との互換を維持
     return (state.slope.direction==='up') ? -1 : 1; // 既定：施工方向から自動導出
   }
   // state.points内のindex(0始まり)の地点の自動ラベルを返す。開始桝No.(state.start.label)から
@@ -2193,8 +2191,8 @@
           }).join('');
       // このラインを開いた時点で、探したり選び直したりせずに分岐先がひと目で分かるようにする(項目対応)。
       const match = state.branchOf ? opts.find(o=>o.lineId===state.branchOf.lineId && (o.pointId||null)===(state.branchOf.pointId||null)) : null;
-      document.getElementById('branchOfDisplay').textContent = match ? ('接続先：'+match.label)
-        : (state.branchOf ? '接続先：（見つかりません。選び直してください）' : '接続先：未入力（現場でまだ分からない場合）');
+      document.getElementById('branchOfDisplay').textContent = match ? ('合流桝：'+match.label)
+        : (state.branchOf ? '合流桝：選択先が見つかりません（選び直してください）' : '合流桝：未選択');
     } else {
       branchOfWrap.style.display = 'none';
     }
