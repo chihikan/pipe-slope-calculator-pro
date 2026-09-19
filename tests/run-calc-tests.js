@@ -1596,6 +1596,25 @@ test('枝管を新規作成すると、「接続先桝No.」欄がある勾配/�
   assertEqual(hooks.document.getElementById('branchOfDisplay').textContent, '接続先：未入力（現場でまだ分からない場合）', '接続先の表示テキストがあること(未選択時は明示的に「未入力」と分かる)');
 });
 
+// =====================================================================
+// Ver1.0.38: 横スワイプがブラウザ/OS標準の「戻る」ジェスチャーとして解釈され、
+// 入力中の現場がまっさらな状態に戻ってしまう不具合の回帰防止（CSSプロパティの存在確認）。
+// 実際のスワイプ操作自体はNode環境では再現できないため、恒久対策として追加した
+// touch-action:pan-y / overscroll-behavior-x:none が html,body から取り除かれていないことを
+// 検証する(将来のCSSリファクタ等でうっかり削除されるのを防ぐ回帰テスト)。
+// =====================================================================
+test('横スワイプ誤操作対策のCSS(touch-action:pan-y / overscroll-behavior-x:none)がhtml,bodyに設定されていること', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const styleMatch = html.match(/<style>([\s\S]*?)<\/style>/);
+  assertTrue(!!styleMatch, '<style>ブロックが見つかること');
+  const css = styleMatch[1];
+  const bodyRuleMatch = css.match(/html,body\{[^}]*\}/);
+  assertTrue(!!bodyRuleMatch, 'html,bodyのCSSルールが見つかること');
+  const rule = bodyRuleMatch[0];
+  assertTrue(/touch-action:\s*pan-y/.test(rule), 'touch-action:pan-y が設定されていること(横方向のブラウザ既定パン操作を無効化)');
+  assertTrue(/overscroll-behavior-x:\s*none/.test(rule), 'overscroll-behavior-x:none が設定されていること(横方向オーバースクロールでの戻る/進むナビゲーションを防止)');
+});
+
 // ---------- 結果出力 ----------
 let passCount = 0, failCount = 0;
 for (const r of results) {
